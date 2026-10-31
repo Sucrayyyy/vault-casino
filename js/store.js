@@ -23,17 +23,43 @@ function safeParse(s) { try { return JSON.parse(s) || {}; } catch (e) { return {
 
 // ---------- god mode (cheats, device-local, password protected) ----------
 const GOD_HASH = '4288f6a2dd1421ae5f952d20cd71f9477530b963889d1a8cd189d4f2973f9314';
-export const cheats = Object.assign({ on: false, luck: 0, god: 1, hits: 1, rare: 1, payout: 1, safeCrash: false }, settings.cheats || {});
+export const cheats = Object.assign({ on: false, luck: 0, god: 1, hits: 1, rare: 1, payout: 1 }, settings.cheats || {});
+cheats.once ||= {}; // one-shot effects from cheat codes
 export const checkGodPassword = (pw) => sha256Hex('vault:' + pw) === GOD_HASH;
 export function saveCheats() { settings.cheats = { ...cheats }; saveSettings(); bus.emit('cheats'); }
 // % of losing outcomes that get re-rolled
-export const luckRoll = () => cheats.on && cheats.luck > 0 && Math.random() * 100 < cheats.luck;
+export const luckRoll = () => !!cheats.once.jackpot || (cheats.on && cheats.luck > 0 && Math.random() * 100 < cheats.luck);
 // Re-roll a generated outcome while it is a loss (only when god mode luck is on)
 export function lucky(gen, good, tries = 14) {
   let r = gen();
+  if (cheats.once.jackpot) { for (let i = 0; i < 40 && !good(r); i++) r = gen(); return r; }
   if (!cheats.on || cheats.luck <= 0) return r;
   for (let i = 0; i < tries && !good(r); i++) { if (Math.random() * 100 >= cheats.luck) break; r = gen(); }
   return r;
+}
+// Cheat codes. Returns a message, or null when the code is unknown.
+export function applyCode(raw) {
+  const c = String(raw || '').trim().toUpperCase().replace(/\s+/g, '');
+  const o = cheats.once;
+  let msg = null;
+  switch (c) {
+    case 'JACKPOT': o.jackpot = 1; msg = 'Ton prochain pari casino est gagnant, gains ×10'; break;
+    case 'GODPACK': o.godpack = 1; msg = 'Ton prochain booster est un god pack'; break;
+    case 'KNIFE': o.knife = 1; msg = 'Ta prochaine caisse contient un objet ★'; break;
+    case 'MOONWALK': o.moon = 3; msg = 'Au Jet, l’avion ne s’écrase pas avant ×100 (3 tours)'; break;
+    case 'NOMINES': o.nomines = 1; msg = 'Aucune bombe sur ta prochaine partie de Mines'; break;
+    case 'TIMEWARP':
+      if (S) { S.daily.last = 0; S.faucet.last = 0; S.missions.day = ''; ensureMissions(); save(); }
+      msg = 'Bonus quotidien, coffre et missions réinitialisés'; break;
+    case 'RICHIE':
+      if (S) { const b = S.balance; credit(round2(b * 9), 'code'); msg = `Fortune ×10 : +${Math.round(b * 9).toLocaleString('fr-FR')} jetons`; }
+      break;
+    case 'MASCOTS': o.allMascots = 1; msg = 'Toutes les mascottes sont débloquées'; break;
+    case 'RAINBOW': msg = 'Fête !'; break;
+    case 'OFF': Object.keys(o).forEach((k) => delete o[k]); cheats.on = false; msg = 'Triches désactivées'; break;
+  }
+  if (msg) { saveCheats(); bus.emit('code', msg); }
+  return msg;
 }
 export const cheatMul = (k) => (cheats.on ? cheats[k] || 1 : 1);
 
@@ -183,6 +209,11 @@ export function placeBet(game, amount) {
 // payout = total amount returned (0 on loss). mult informational.
 export function settle(game, bet, payout, opts = {}) {
   if (cheats.on && cheats.payout > 1 && payout > bet && !opts.noCredit) payout = bet + (payout - bet) * cheats.payout;
+  // JACKPOT code: the next casino bet is a guaranteed win with a ×10 profit boost
+  if (cheats.once.jackpot && ['casino', 'table'].includes(gameById[game]?.sec)) {
+    delete cheats.once.jackpot; saveCheats();
+    if (payout > bet && !opts.noCredit) { payout = bet + (payout - bet) * 10; setTimeout(() => bus.emit('code', 'JACKPOT encaissé : gains ×10'), 300); }
+  }
   payout = round2(payout);
   const mult = opts.mult ?? (bet > 0 ? payout / bet : 0);
   const profit = round2(payout - bet);

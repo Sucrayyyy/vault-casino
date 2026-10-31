@@ -1,4 +1,4 @@
-import { placeBet, settle, fair, ach, luckRoll } from '../store.js';
+import { placeBet, settle, fair, ach, luckRoll, cheats, saveCheats } from '../store.js';
 import { $, $$, el, css, gameLayout, betField, selectField, money, fmtX, sleep, resultPop, shake, haptic } from '../ui.js';
 import { pickDistinct } from '../rng.js';
 import { sfx } from '../audio.js';
@@ -73,6 +73,7 @@ export function mount(root) {
     pop.hide();
     const fl = fair.bet(24);
     const minePos = new Set(pickDistinct(fl, 25, mines));
+    if (cheats.once.nomines) { minePos.clear(); delete cheats.once.nomines; saveCheats(); } // NOMINES code
     game = { amount, mines: minePos, revealed: [] };
     tiles.forEach((t) => t.classList.add('live'));
     bet.disable(true); sel.disable(true);

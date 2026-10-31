@@ -1,5 +1,5 @@
 // Real French TCG expansions (TCGdex images, Cardmarket EUR prices) with era-specific pull rates.
-import { round2, cheatMul } from '../store.js';
+import { round2, cheatMul, cheats, saveCheats } from '../store.js';
 
 export const INDEX = await fetch(new URL('../../data/poke/index.json', import.meta.url)).then((r) => r.json());
 export const setMeta = Object.fromEntries(INDEX.map((s) => [s.id, s]));
@@ -62,7 +62,8 @@ const take = (set, tier, f, fb = ['R', 'U', 'C']) => pickFrom(pool(set, tier, fb
 
 // One booster; `next` returns uniform floats. Rarest cards come last, like in a real pack.
 export const GOD_P = 1 / 2000;
-export function openBooster(set, next) {
+export function openBooster(set, next, sim = false) {
+  if (!sim && cheats.once.godpack) { delete cheats.once.godpack; saveCheats(); return godPack(set, next); } // GODPACK code
   const H = cheatMul('hits');
   if (next() < Math.min(1, GOD_P * cheatMul('god'))) return godPack(set, next);
   const out = [];
@@ -132,7 +133,7 @@ function boosterEV(set) {
   let s = 12345, tot = 0;
   const rnd = () => ((s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
   const N = 3000;
-  for (let i = 0; i < N; i++) tot += openBooster(set, rnd).reduce((a, e) => a + rawPrice(e), 0);
+  for (let i = 0; i < N; i++) tot += openBooster(set, rnd, true).reduce((a, e) => a + rawPrice(e), 0);
   return tot / N;
 }
 const nice = (x) => (x < 20 ? Math.ceil(x * 2) / 2 - 0.01 : Math.ceil(x) - 0.01);

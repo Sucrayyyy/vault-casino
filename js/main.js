@@ -1,15 +1,17 @@
 import {
   S, settings, saveSettings, bus, loadMode, hasSave, peekSave, netWorth, invValue, isStory, isUnlocked,
   dailyState, claimDaily, faucetLeft, faucetAmount, claimFaucet, claimRake, refill, ensureMissions, missionText,
-  claimMission, ACH, fair, saveNow, START, cheats, saveCheats, checkGodPassword, credit,
+  claimMission, ACH, fair, saveNow, START, cheats, saveCheats, checkGodPassword, credit, applyCode,
 } from './store.js';
 import { GAMES, CHAPTERS, VIP, gameById } from './catalog.js';
-import { $, $$, el, fmt, fmtShort, fmtX, money, COIN, toast, sheet, confirmSheet, haptic, confetti, bigWinOverlay, countUp, esc } from './ui.js';
+import { $, $$, el, fmt, fmtShort, fmtX, money, COIN, toast, sheet, confirmSheet, haptic, confetti, bigWinOverlay, countUp, esc, shake } from './ui.js';
 import { sfx, unlockAudio, audioSettings } from './audio.js';
 import { thumb } from './thumbs.js';
 import { startFeed, getFeed, avatar, leaderboard, gameName } from './bots.js';
 import { sha256Hex } from './rng.js';
 import { icon, badge } from './icons.js';
+import { MASCOTS, mascotSVG, isMascotUnlocked, currentMascot, equipMascot, checkNewMascots, updateHomeIcon } from './mascots.js';
+import { renderShowcase } from './showcase.js';
 
 const view = $('#view');
 const topbar = $('#topbar');
@@ -28,9 +30,6 @@ const unlock = () => { unlockAudio(); audioSettings(settings); };
 ['pointerdown', 'touchend', 'click', 'keydown'].forEach((ev) => window.addEventListener(ev, unlock, { capture: true, passive: true }));
 document.addEventListener('click', (e) => { if (e.target.closest('button')) haptic(); }, { capture: true });
 
-// Small version of the app mascot (smiling vault door)
-const LOGO_MARK = `<svg class="logo-mark" viewBox="0 0 64 64" width="30" height="30"><defs><linearGradient id="lmg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff1a8"/><stop offset=".5" stop-color="#ffc83d"/><stop offset="1" stop-color="#e48a00"/></linearGradient></defs><circle cx="32" cy="34" r="28" fill="#7a4300" opacity=".5"/><circle cx="32" cy="32" r="28" fill="url(#lmg)" stroke="#b86a00" stroke-width="2.5"/><circle cx="32" cy="32" r="21" fill="none" stroke="#c97c00" stroke-width="1.5"/><ellipse cx="25" cy="26" rx="5" ry="6" fill="#fff"/><ellipse cx="39" cy="26" rx="5" ry="6" fill="#fff"/><circle cx="26" cy="27.5" r="2.8" fill="#1b1033"/><circle cx="40" cy="27.5" r="2.8" fill="#1b1033"/><path d="M32 30v8M28 34h8" stroke="#8a4b00" stroke-width="2.4" stroke-linecap="round"/><path d="M23 41c3 6 15 6 18 0" fill="#5b1d0a" stroke="#8a4b00" stroke-width="1.5"/></svg>`;
-
 // ---------------- topbar ----------------
 let shownBalance = 0;
 function renderTop(route) {
@@ -38,12 +37,19 @@ function renderTop(route) {
   const id = route.slice(2).split('/')[0];
   topbar.innerHTML = `
     ${inGame ? `<button class="back-btn" data-back aria-label="Retour"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M15 4l-8 8 8 8" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="top-title">${esc(gameById[id]?.name || '')}</div>`
-      : `<div class="logo">${LOGO_MARK}VAULT</div>`}${cheats.on ? '<span class="god-chip" data-godchip>GOD</span>' : ''}
+      : `<button class="logo" data-logo>${mascotSVG()}VAULT</button>`}${cheats.on ? '<span class="god-chip" data-godchip>GOD</span>' : ''}
     <div class="wallet"><button class="bal" data-wallet>${COIN}<span data-bal>${fmt(S.balance)}</span></button><button class="wbtn" data-wallet aria-label="Portefeuille"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h13v3H5" fill="none" stroke="#fff" stroke-width="2.2"/><rect x="3" y="7" width="18" height="13" rx="2" fill="none" stroke="#fff" stroke-width="2.2"/><circle cx="16.5" cy="13.5" r="1.6" fill="#fff"/></svg></button></div>
     ${inGame ? '' : `<button class="icon-btn" data-go="profil" aria-label="Profil"><svg width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>`}`;
   shownBalance = S.balance;
   $('[data-back]', topbar)?.addEventListener('click', () => { sfx.click(); goBack(); });
   $('[data-godchip]', topbar)?.addEventListener('click', () => { sfx.click(); openGodMode(); });
+  let taps = 0, tapT;
+  $('[data-logo]', topbar)?.addEventListener('click', () => {
+    taps++; clearTimeout(tapT); tapT = setTimeout(() => (taps = 0), 1600);
+    const m = $('[data-logo] .logo-mark', topbar); m?.classList.remove('boing'); void m?.offsetWidth; m?.classList.add('boing');
+    sfx.tick(1 + taps * 0.2, 0.08);
+    if (taps >= 5) { taps = 0; openCodeEntry(); }
+  });
   $$('[data-wallet]', topbar).forEach((b) => (b.onclick = () => { sfx.click(); openWallet(); }));
   $('[data-go]', topbar)?.addEventListener('click', () => { sfx.tab(); go('profil'); });
 }
@@ -379,6 +385,9 @@ function renderProfile(page) {
       <div class="stat"><small>Caisses ouvertes</small><b>${st.cases}</b></div>
       <div class="stat"><small>Boosters ouverts</small><b>${st.packs}</b></div>
     </div>
+    <div class="sec" data-vit></div>
+    <div class="sec"><div class="sec-head"><div class="h2">${mascotSVG(undefined, 22, 'ico')} Mascottes</div><span class="more">${MASCOTS.filter(isMascotUnlocked).length}/${MASCOTS.length}</span></div>
+      <div class="masc-grid">${MASCOTS.map((m) => { const ok = isMascotUnlocked(m), on = currentMascot().id === m.id; return `<button class="masc ${ok ? '' : 'locked'} ${on ? 'on' : ''}" data-masc="${m.id}">${mascotSVG(m, 54, 'mimg')}<b>${m.name}</b><small>${on ? 'Équipée' : ok ? 'Équiper' : m.how}</small>${ok ? '' : `<span class="lk">${icon('lock', 14)}</span>`}</button>`; }).join('')}</div></div>
     <div class="sec"><button class="btn full" data-lb>${icon('trophy', 18)} Classement</button></div>
     ${games.length ? `<div class="sec"><div class="sec-head"><div class="h2">Par jeu</div></div><table class="table"><thead><tr><th>Jeu</th><th>Paris</th><th>Meilleur</th><th>Profit</th></tr></thead><tbody>${games.map(([id, g]) => `<tr><td>${gameName(id)}</td><td>${g.bets}</td><td>${fmtX(g.best)}</td><td class="${g.profit >= 0 ? 'green' : 'red'}">${fmt(g.profit)}</td></tr>`).join('')}</tbody></table></div>` : ''}
     <div class="sec"><div class="sec-head"><div class="h2">Réglages</div></div><div class="list">
@@ -401,6 +410,13 @@ function renderProfile(page) {
     sfx.click();
   }));
   $('[data-lb]', page).onclick = () => { sfx.click(); openLeaderboard(); };
+  renderShowcase($('[data-vit]', page));
+  $$('[data-masc]', page).forEach((b) => (b.onclick = () => {
+    const m = MASCOTS.find((x) => x.id === b.dataset.masc);
+    if (!isMascotUnlocked(m)) { sfx.error(); toast(`Mascotte ${m.name} : ${m.how.toLowerCase()}`, { type: 'red', icon: icon('lock') }); return; }
+    equipMascot(m.id); sfx.levelUp(); confetti({ n: 60, y: 0.2 });
+    route();
+  }));
   $('[data-fair]', page).onclick = () => { sfx.click(); openFairness(); };
   $('[data-god]', page).onclick = () => { sfx.click(); openGodMode(); };
   $('[data-rename]', page).onclick = () => {
@@ -416,6 +432,25 @@ function renderProfile(page) {
       route();
     }
   };
+}
+
+// ---------------- CHEAT CODES ----------------
+function runCode(v) {
+  const msg = applyCode(v);
+  if (!msg) { sfx.error(); haptic(true); toast('Code inconnu', { type: 'red', icon: icon('close') }); return false; }
+  if (String(v).trim().toUpperCase() === 'RAINBOW') { confetti({ n: 220 }); setTimeout(() => confetti({ n: 160, x: 0.2 }), 300); setTimeout(() => confetti({ n: 160, x: 0.8 }), 600); }
+  return true;
+}
+function openCodeEntry() {
+  if (!settings.godKey) { openGodMode(); return; }
+  const s = sheet(`<h3>${icon('key', 20)} Code de triche</h3>
+    <div class="field"><div class="in">${icon('key', 16)}<input data-code placeholder="Tape ton code" autocapitalize="characters" autocomplete="off"></div></div>
+    <div class="spacer"></div><button class="btn gold full lg" data-go>Valider</button>`, { center: true });
+  const inp = $('[data-code]', s.el);
+  setTimeout(() => inp.focus(), 250);
+  const go = () => { if (runCode(inp.value)) s.close(); else { inp.value = ''; shake($('.field', s.el)); } };
+  $('[data-go]', s.el).onclick = go;
+  inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
 }
 
 // ---------------- GOD MODE ----------------
@@ -465,6 +500,8 @@ function godPanel() {
       ${isStory() ? '<button class="btn full" data-unlock>Débloquer tous les jeux et extensions</button>' : ''}
       <button class="btn ghost full" data-reset>Remettre les triches à zéro</button>
     </div>
+    <div class="label" style="margin-top:14px">Code de triche</div>
+    <div class="row"><div class="field grow"><div class="in">${icon('key', 16)}<input data-code placeholder="Ex : JACKPOT" autocapitalize="characters" autocomplete="off"></div></div><button class="btn gold" data-codego>OK</button></div>
     <div class="dim" style="font-size:11px;margin-top:12px;line-height:1.5">Avec le god mode, les résultats ne sont plus « équitables prouvables » : c’est du pur fun.</div>`);
   const refreshTop = () => { renderTop(current); };
   $('[data-godsw]', s.el).onclick = () => {
@@ -487,6 +524,9 @@ function godPanel() {
     S.peak = Math.max(S.peak, 1e10); GAMES.forEach((g) => (S.seenUnlock[g.id] = 2)); saveNow();
     sfx.levelUp(); toast('Tout est débloqué', { type: 'gold', icon: icon('crown') }); s.close(); route();
   });
+  const sendCode = () => { const inp = $('[data-code]', s.el); if (!runCode(inp.value)) { shake($('[data-code]', s.el).closest('.field')); } inp.value = ''; };
+  $('[data-codego]', s.el).onclick = sendCode;
+  $('[data-code]', s.el).addEventListener('keydown', (e) => { if (e.key === 'Enter') sendCode(); });
   $('[data-reset]', s.el).onclick = () => {
     Object.assign(cheats, { luck: 0, god: 1, hits: 1, rare: 1, payout: 1 }); saveCheats(); sfx.click(); s.close(); setTimeout(godPanel, 220);
   };
@@ -523,7 +563,7 @@ function renderSplash(fromProfile = false) {
     return `Sauvegarde : ${money(d.balance)}${m === 'story' ? ` · chapitre ${(d.chapter || 0) + 1}` : ''}`;
   };
   view.innerHTML = `<div class="splash page-enter">
-    <div class="big-logo">${LOGO_MARK.replace('width="30" height="30"', 'width="64" height="64"')}VAULT</div>
+    <div class="big-logo">${mascotSVG(undefined, 64)}VAULT</div>
     <div class="center muted" style="font-size:13px;margin-top:-6px">Casino · Skins · Cartes — 100 % virtuel</div>
     <div class="spacer"></div>
     <button class="mode-card" data-m="story" style="border-color:#00e70155"><div class="mi">${icon('book', 90)}</div><div class="chip green" style="align-self:flex-start">RECOMMANDÉ</div><div class="mt">Mode histoire</div><div class="ms">Commence avec ${fmt(START.story)} jetons. Atteins des paliers de fortune pour débloquer de nouveaux jeux, les caisses CS et les boosters Pokémon. 15 chapitres jusqu’au milliard.</div><div class="save">${info('story')}</div></button>
@@ -540,6 +580,17 @@ function renderSplash(fromProfile = false) {
 }
 
 // ---------------- global event reactions ----------------
+bus.on('code', (msg) => { sfx.levelUp(); haptic(true); confetti({ n: 90, colors: ['#ffd66b', '#fff', '#f59e0b'] }); toast(msg, { type: 'gold', icon: icon('key'), ms: 3800 }); });
+bus.on('mascot', () => renderTop(current));
+let mascT;
+const mascotWatch = () => { clearTimeout(mascT); mascT = setTimeout(() => {
+  for (const m of checkNewMascots()) {
+    saveNow();
+    toast(`Nouvelle mascotte : <b>${m.name}</b>`, { type: 'gold', icon: mascotSVG(m, 28, ''), sub: 'Équipe-la dans ton profil', ms: 4200 });
+    sfx.levelUp();
+  }
+}, 900); };
+bus.on('balance', mascotWatch); bus.on('ach', mascotWatch); bus.on('code', mascotWatch);
 bus.on('migrated', (v) => toast(`Mise à jour V2 : ton ancien inventaire a été revendu`, { type: 'gold', icon: icon('refresh'), sub: `+${fmt(v)} crédités. Place aux vrais skins et aux vraies cartes !`, ms: 5000 }));
 bus.on('error', (msg) => { sfx.error(); toast(msg, { type: 'red', icon: icon('warn') }); });
 bus.on('bigwin', ({ payout, mult }) => setTimeout(() => bigWinOverlay(payout, mult), 350));
@@ -586,6 +637,8 @@ document.addEventListener('gesturestart', (e) => e.preventDefault());
 
 if (settings.mode && hasSave(settings.mode)) {
   loadMode(settings.mode);
+  checkNewMascots(); // already-unlocked ones are not announced
+  updateHomeIcon();
   import('./poke/lobby.js').then((m) => m.refreshMarket());
   startFeed();
   route();

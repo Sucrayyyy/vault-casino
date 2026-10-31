@@ -1,4 +1,4 @@
-import { placeBet, settle, fair, ach, round2, lucky } from '../store.js';
+import { placeBet, settle, fair, ach, round2, lucky, cheats, saveCheats } from '../store.js';
 import { $, el, css, gameLayout, betField, money, fmt, fitCanvas, shake, haptic, clamp, esc } from '../ui.js';
 import { crashPoint } from '../rng.js';
 import { sfx, engine } from '../audio.js';
@@ -99,6 +99,8 @@ export function mount(root) {
 
   function startFlight() {
     if (myBet) crashAt = lucky(() => crashPoint(fair.bet(1)[0]), (c) => c >= Math.max(myBet.auto || 0, 2));
+    // MOONWALK code: no crash before ×100 for a few rounds
+    if (myBet && cheats.once.moon > 0) { crashAt = Math.max(crashAt, +(100 + Math.random() * 400).toFixed(2)); cheats.once.moon--; if (!cheats.once.moon) delete cheats.once.moon; saveCheats(); }
     else crashAt = crashPoint(Math.random());
     phase = 'fly';
     t0 = performance.now();

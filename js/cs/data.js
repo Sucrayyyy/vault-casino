@@ -53,10 +53,11 @@ export const CASES = DB.cases.map((c) => {
 export const caseById = Object.fromEntries(CASES.map((c) => [c.id, c]));
 
 // One item from a case using 4 fair floats
-export function rollCase(c, f1, f2, f3, f4) {
+export function rollCase(c, f1, f2, f3, f4, forceGold = false) {
   const boost = cheatMul('rare');
   let odds = c.odds;
-  if (boost > 1) {
+  if (forceGold) { const g = c.odds.filter((o) => ITEMS[o.id].r === 4); const t = g.reduce((a, o) => a + o.p, 0); if (g.length) odds = g.map((o) => ({ id: o.id, p: o.p / t })); }
+  if (boost > 1 && !forceGold) {
     // god mode: covert and gold items become `boost` times more likely
     const w = c.odds.map((o) => o.p * (ITEMS[o.id].r >= 3 ? boost : 1));
     const t = w.reduce((a, b) => a + b, 0);

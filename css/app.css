@@ -417,3 +417,20 @@ body, #app { background: #10263a; }
 .logo-mark { filter: drop-shadow(0 2px 6px rgba(255,200,61,.45)); animation: markBob 3.2s ease-in-out infinite; }
 @keyframes markBob { 50% { transform: rotate(-8deg) translateY(-1px); } }
 .splash .big-logo .logo-mark { filter: drop-shadow(0 6px 18px rgba(255,200,61,.5)); }
+/* mascots */
+button.logo { color: #fff; padding: 0; }
+.logo-mark.boing { animation: boing .45s cubic-bezier(.3,1.8,.5,1); }
+@keyframes boing { 30% { transform: scale(1.35) rotate(-12deg); } 60% { transform: scale(.9) rotate(6deg); } }
+.logo-mark[style*="--mg"] { filter: drop-shadow(0 0 6px var(--mg)) drop-shadow(0 2px 6px rgba(0,0,0,.3)); }
+.masc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.masc { position: relative; border-radius: 14px; padding: 10px 6px 9px; background: rgba(37, 68, 90, .55); box-shadow: inset 0 0 0 1px rgba(255,255,255,.05); display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+.masc b { font-size: 12px; }
+.masc small { font-size: 9.5px; color: var(--txt2); font-weight: 700; line-height: 1.25; }
+.masc.on { box-shadow: inset 0 0 0 2px var(--green), 0 0 14px rgba(0,231,1,.2); }
+.masc.on small { color: var(--green); }
+.masc.locked .mimg { filter: grayscale(1) brightness(.45); }
+.masc.locked b { color: var(--txt3); }
+.masc .lk { position: absolute; top: 8px; right: 8px; color: var(--txt3); }
+.masc .mimg[style*="--mg"] { filter: drop-shadow(0 0 8px var(--mg)); }
+.masc.locked .mimg[style*="--mg"] { filter: grayscale(1) brightness(.45); }
+.toast .ti svg { width: 28px; height: 28px; }
