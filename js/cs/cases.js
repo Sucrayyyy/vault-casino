@@ -102,9 +102,9 @@ function openView(root, c) {
     items.forEach((it) => { const im = new Image(); im.src = imgURL(ITEMS[it.k].img, 256); });
     addItems('skins', items);
     track('case', qty);
-    await Promise.all(spinners.map((s, i) => s.spin(c, items[i].k, { duration: 5600 + i * 250 })));
+    await Promise.all(spinners.map((s, i) => s.spin(c, items[i].k, { duration: 5600 + i * 250, quiet: i > 0 })));
     const best = Math.max(...items.map((it) => ITEMS[it.k].r));
-    sfx.rarity(best);
+    sfx.caseReveal(best);
     if (best >= 3) { haptic(true); confetti({ n: best === 4 ? 160 : 80, colors: best === 4 ? ['#ffd66b', '#e4ae39', '#fff'] : ['#eb4b4b', '#fff'] }); }
     if (best === 4) { document.body.append(el('<div class="gold-flash"></div>')); setTimeout(() => $('.gold-flash')?.remove(), 1000); }
     ach('gold', best === 4); ach('covert', best >= 3);

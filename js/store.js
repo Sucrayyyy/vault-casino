@@ -368,6 +368,7 @@ export const ACH = {
   jet_100: ['Pilote de légende', 'Encaisse à ×100 ou plus au Jet', 'plane'],
   daily7: ['Fidèle', 'Récupère le 7e jour du bonus quotidien', 'calendar'],
   psa10: ['Gemme parfaite', 'Obtiens une note PSA 10', 'gem'],
+  godpack: ['God pack', 'Ouvre un god pack (1 chance sur 2 000)', 'crown'],
   mines_big: ['Démineur', 'Révèle 20 gemmes ou plus en une partie de Mines', 'bomb'],
 };
 export function ach(id, cond) {

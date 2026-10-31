@@ -21,8 +21,8 @@ export const eraOf = (id) => (['base1', 'base2', 'base5', 'neo1'].includes(id) ?
 export const ERA_NAME = { wotc: 'Wizards (1999-2000)', xy: 'XY', sm: 'Soleil et Lune', swsh: 'Épée et Bouclier', cel: 'Épée et Bouclier', sv: 'Écarlate et Violet / Méga' };
 
 // Story mode: expansions unlock with net worth (modern & cheap first, vintage last)
-const UNLOCK_ORDER = ['sv08', 'sv03.5', 'sv10', 'sv03', 'me01', 'sv07', 'sv06.5', 'sv10.5w', 'me02', 'sv08.5', 'sv04.5', 'swsh12', 'swsh11', 'swsh9', 'swsh12.5', 'cel25', 'swsh4.5', 'swsh7', 'sm12', 'sm9', 'g1', 'xy12', 'neo1', 'base5', 'base2', 'base1'];
-const UNLOCK_AT = [0, 0, 2500, 5000, 5000, 10000, 10000, 25000, 25000, 25000, 50000, 50000, 75000, 75000, 100000, 100000, 150000, 250000, 250000, 400000, 500000, 750000, 1000000, 2000000, 3500000, 5000000];
+const UNLOCK_ORDER = ['30th', 'sv08', 'sv03.5', 'sv10', 'sv03', 'me01', 'sv07', 'sv06.5', 'sv10.5w', 'me02', 'sv08.5', 'sv04.5', 'swsh12', 'swsh11', 'swsh9', 'swsh12.5', 'cel25', 'swsh4.5', 'swsh7', 'sm12', 'sm9', 'g1', 'xy12', 'neo1', 'base5', 'base2', 'base1'];
+const UNLOCK_AT = [0, 0, 0, 2500, 5000, 5000, 10000, 10000, 25000, 25000, 25000, 50000, 50000, 75000, 75000, 100000, 100000, 150000, 250000, 250000, 400000, 500000, 750000, 1000000, 2000000, 3500000, 5000000];
 export const setUnlock = (id) => { const i = UNLOCK_ORDER.indexOf(id); return i < 0 ? 0 : UNLOCK_AT[i]; };
 
 export const logoURL = (s) => (s.logo ? `${s.logo}.webp` : null);
@@ -61,7 +61,9 @@ function pool(set, tier, fallbacks) {
 const take = (set, tier, f, fb = ['R', 'U', 'C']) => pickFrom(pool(set, tier, fb), f);
 
 // One booster; `next` returns uniform floats. Rarest cards come last, like in a real pack.
+export const GOD_P = 1 / 2000;
 export function openBooster(set, next) {
+  if (next() < GOD_P) return godPack(set, next);
   const out = [];
   const e = set.era;
   if (e === 'wotc') {
@@ -97,6 +99,18 @@ export function openBooster(set, next) {
   else if (e === 'sm') r = z < 1 / 40 ? 'HR' : z < 1 / 40 + 1 / 4.5 ? 'UR' : 'R';
   else r = z < 1 / 60 ? 'HR' : z < 1 / 60 + 1 / 6 ? 'UR' : 'R';
   out.push({ c: take(set, r, next(), ['UR', 'RR', 'R', 'U']) });
+  return out;
+}
+
+// God pack: every single card is a hit, the best one saved for last
+function godPack(set, next) {
+  const n = set.era === 'wotc' ? 11 : set.era === 'cel' ? 4 : 10;
+  const hitTiers = Object.keys(TIER).filter((t) => TIER[t].lvl >= 3 && set.byTier[t]);
+  const tiers = hitTiers.length ? hitTiers : Object.keys(TIER).filter((t) => TIER[t].lvl >= 2 && set.byTier[t]);
+  const out = Array.from({ length: n }, () => ({ c: take(set, tiers[Math.floor(next() * tiers.length) % tiers.length], next(), ['UR', 'IR', 'RR', 'H', 'R']), god: true }));
+  const top = ['HR', 'SIR', 'UR', 'H'].find((t) => set.byTier[t]);
+  if (top) out[n - 1] = { c: take(set, top, next()), god: true };
+  out.sort((a, b) => a.c.price - b.c.price);
   return out;
 }
 

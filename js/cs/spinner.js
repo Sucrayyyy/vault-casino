@@ -69,7 +69,7 @@ export function makeSpinner(container, { vertical = false, cell = 104, cross = 9
     strip.style.transform = vertical ? `translateY(${off}px)` : `translateX(${off}px)`;
   }
 
-  function spin(caseDef, winSid, { duration = 5200 } = {}) {
+  function spin(caseDef, winSid, { duration = 5200, quiet = false } = {}) {
     const odds = caseDef.odds;
     const N = 46, W = 38;
     const ids = Array.from({ length: N }, (_, i) => (i === W ? winSid : filler(odds)));
@@ -81,6 +81,7 @@ export function makeSpinner(container, { vertical = false, cell = 104, cross = 9
     strip.style.transition = 'none';
     strip.style.transform = vertical ? 'translateY(0)' : 'translateX(0)';
     void strip.offsetWidth;
+    if (!quiet) sfx.caseOpen();
     strip.style.transition = `transform ${dur}ms cubic-bezier(.1,.75,.12,1)`;
     strip.style.transform = vertical ? `translateY(${target}px)` : `translateX(${target}px)`;
     let last = 0, raf;
@@ -88,7 +89,7 @@ export function makeSpinner(container, { vertical = false, cell = 104, cross = 9
       const m = new DOMMatrixReadOnly(getComputedStyle(strip).transform);
       const pos = -(vertical ? m.m42 : m.m41);
       const idx = Math.floor((pos + span / 2) / cell);
-      if (idx !== last) { last = idx; sfx.spinTick(); }
+      if (idx !== last) { last = idx; sfx.caseTick(); }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);

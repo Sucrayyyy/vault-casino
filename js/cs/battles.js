@@ -139,10 +139,10 @@ export function mount(root) {
       $('[data-hc]', root).innerHTML = caseImg(c, 128);
       $('[data-ht]', root).textContent = `Manche ${r + 1}/${rounds.length} · ${c.name}`;
       const res = allRes[r];
-      await Promise.all(spinners.map((s, i) => s.spin(c, res[i].k, { duration: settings.fast ? 2600 : 3800 })));
+      await Promise.all(spinners.map((s, i) => s.spin(c, res[i].k, { duration: settings.fast ? 2600 : 3800, quiet: i > 0 })));
       if (!alive) return;
       const best = Math.max(...res.map((x) => ITEMS[x.k].r));
-      sfx.rarity(Math.min(4, best));
+      sfx.caseReveal(Math.min(4, best));
       if (best >= 3) haptic(true);
       res.forEach((it, i) => {
         players[i].items.push(it);

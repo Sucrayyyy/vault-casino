@@ -24,17 +24,19 @@ css('tcard', `
 .cprice .rar { color: var(--txt3); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cprice .rar.hit { color: #ffd66b; }
 
-.pack { position: relative; width: var(--pw, 180px); aspect-ratio: 0.58; border-radius: 6px 6px 8px 8px; overflow: hidden; background: linear-gradient(160deg, hsl(var(--h) 80% 55%), hsl(calc(var(--h) + 40) 70% 30%) 55%, hsl(var(--h) 75% 45%)); box-shadow: 0 18px 30px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.25); }
-.pack::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(100deg, rgba(255,255,255,.07) 0 2px, transparent 2px 9px); }
-.pack .crimp { position: absolute; left: 0; right: 0; height: 7%; background: repeating-linear-gradient(90deg, rgba(255,255,255,.35) 0 3px, rgba(0,0,0,.12) 3px 6px); z-index: 3; }
-.pack .crimp.t { top: 0; } .pack .crimp.b { bottom: 0; }
-.pack .art { position: absolute; left: 11%; right: 11%; top: 31%; height: 46%; border-radius: 6px; overflow: hidden; box-shadow: 0 6px 16px rgba(0,0,0,.45); }
-.pack .art img { width: 100%; height: 180%; object-fit: cover; object-position: 50% 14%; }
-.pack .logo { position: absolute; left: 8%; right: 8%; top: 9%; height: 19%; display: grid; place-items: center; z-index: 2; }
-.pack .logo img { max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 3px 4px rgba(0,0,0,.5)); }
-.pack .logo b { font-weight: 900; font-style: italic; color: #fff; font-size: calc(var(--pw, 180px) * .1); text-align: center; text-shadow: 0 2px 4px rgba(0,0,0,.5); }
-.pack .brand { position: absolute; left: 0; right: 0; bottom: 9%; text-align: center; font-weight: 900; letter-spacing: 2px; font-size: calc(var(--pw, 180px) * .065); color: #ffe08a; text-shadow: 0 2px 3px rgba(0,0,0,.5); z-index: 2; }
-.pack .sheen { position: absolute; inset: 0; background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,.35) 48%, transparent 60%); transform: translateX(-100%); animation: packSheen 3.5s ease-in-out infinite; z-index: 4; }
+.pack { position: relative; width: var(--pw, 180px); aspect-ratio: 0.56; border-radius: 4px 4px 6px 6px; overflow: hidden; background: hsl(var(--h) 60% 25%); box-shadow: 0 18px 30px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.25); }
+.pack .art { position: absolute; inset: 0; }
+.pack .art img { position: absolute; height: 182%; width: auto; max-width: none; left: 50%; top: -11%; transform: translateX(-50%); }
+.pack .shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.55) 0%, transparent 26%, transparent 66%, rgba(0,0,0,.7) 100%); }
+.pack .foilpat { position: absolute; inset: 0; background: repeating-linear-gradient(100deg, rgba(255,255,255,.06) 0 2px, transparent 2px 9px); mix-blend-mode: overlay; }
+.pack .crimp { position: absolute; left: 0; right: 0; height: 6.5%; z-index: 3; background: linear-gradient(180deg, rgba(255,255,255,.55), rgba(190,200,210,.35)), repeating-linear-gradient(90deg, rgba(0,0,0,.18) 0 2px, transparent 2px 5px); background-blend-mode: multiply; background-color: hsl(var(--h) 50% 70%); }
+.pack .crimp.t { top: 0; border-bottom: 1px solid rgba(0,0,0,.25); } .pack .crimp.b { bottom: 0; border-top: 1px solid rgba(0,0,0,.25); }
+.pack .logo { position: absolute; left: 7%; right: 7%; top: 8.5%; height: 17%; display: grid; place-items: center; z-index: 2; }
+.pack .logo img { max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 3px 5px rgba(0,0,0,.7)); }
+.pack .logo b { font-weight: 900; font-style: italic; color: #fff; font-size: calc(var(--pw, 180px) * .1); text-align: center; line-height: 1.05; text-shadow: 0 2px 6px rgba(0,0,0,.8); }
+.pack .band { position: absolute; left: 0; right: 0; bottom: 7.5%; z-index: 2; display: flex; align-items: center; justify-content: space-between; padding: 0 8%; font-weight: 900; font-size: calc(var(--pw, 180px) * .055); color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.8); letter-spacing: .5px; }
+.pack .band span:last-child { color: #ffe08a; }
+.pack .sheen { position: absolute; inset: 0; background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,.4) 48%, transparent 60%); transform: translateX(-100%); animation: packSheen 3.5s ease-in-out infinite; z-index: 4; }
 @keyframes packSheen { 60%, 100% { transform: translateX(100%); } }
 
 .box3d { position: relative; width: var(--bw, 200px); aspect-ratio: 1.25; perspective: 600px; }
@@ -59,10 +61,18 @@ export function cardHTML(set, c, { rev = false, first = false, w = 150, q = 'low
 
 export function packHTML(set, cover, w = 180) {
   const logo = logoURL(set);
-  return `<div class="pack" style="--pw:${w}px;--h:${hueOf(set.id)}"><div class="crimp t"></div>
-    <div class="logo">${logo ? `<img crossorigin="anonymous" src="${logo}" alt="" draggable="false">` : `<b>${esc(set.name)}</b>`}</div>
+  return `<div class="pack" style="--pw:${w}px;--h:${hueOf(set.id)}">
     ${cover ? `<div class="art"><img crossorigin="anonymous" src="${cardImg(set, cover, 'high')}" alt="" draggable="false"></div>` : ''}
-    <div class="brand">VAULT TCG</div><div class="sheen"></div><div class="crimp b"></div></div>`;
+    <div class="shade"></div><div class="foilpat"></div><div class="crimp t"></div>
+    <div class="logo">${logo ? `<img crossorigin="anonymous" src="${logo}" alt="" draggable="false">` : `<b>${esc(set.name)}</b>`}</div>
+    <div class="band"><span>${set.era === 'wotc' ? 11 : set.era === 'cel' ? 4 : 10} CARTES</span><span>BOOSTER</span></div>
+    <div class="sheen"></div><div class="crimp b"></div></div>`;
+}
+
+// Pack artworks: the set's full-art illustrations, like the several pack designs of a real expansion
+export function packCovers(set) {
+  const full = set.cards.filter((c) => ['SIR', 'IR', 'UR', 'HR', 'H'].includes(c.tier)).sort((a, b) => b.price - a.price);
+  return (full.length ? full : [...set.cards].sort((a, b) => b.price - a.price)).slice(0, 4);
 }
 
 export function boxHTML(set, cover, kind, w = 220) {

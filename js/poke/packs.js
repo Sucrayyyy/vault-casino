@@ -3,8 +3,8 @@ import { $, $$, el, css, money, fmt, sleep, confetti, haptic, toast, esc, fmtSho
 import { sfx } from '../audio.js';
 import { icon } from '../icons.js';
 import { stream } from '../rng.js';
-import { INDEX, setMeta, loadSet, products, openBooster, cardPrice, marketFactor, TIER, cardImg, logoURL, setUnlock, sealedValue, ERA_NAME } from './data.js';
-import { cardHTML, packHTML, boxHTML, priceRow, lvlOf, tilt, enableMotion } from './card.js';
+import { INDEX, setMeta, loadSet, products, openBooster, cardPrice, marketFactor, TIER, cardImg, logoURL, setUnlock, sealedValue, ERA_NAME, GOD_P } from './data.js';
+import { cardHTML, packHTML, packCovers, boxHTML, priceRow, lvlOf, tilt, enableMotion } from './card.js';
 import { go } from '../main.js';
 
 const KIND = { boosters: 'booster', etb: 'etb', display: 'display' };
@@ -73,6 +73,10 @@ css('packs2', `
 .po-sum .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 8px; }
 .po-sum .tot { text-align: center; margin: 4px 0 12px; }
 .po-sum .tot b { font-size: 24px; }
+.po-god { position: absolute; top: 6%; left: 0; right: 0; z-index: 17; text-align: center; pointer-events: none; animation: godIn 2.6s ease-out forwards; }
+.po-god b { display: block; font-size: 46px; font-weight: 900; font-style: italic; letter-spacing: -1px; background: linear-gradient(180deg, #fff6c2, #ffc800 50%, #ff8a00); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 3px 0 #7a3c00) drop-shadow(0 0 18px rgba(255,180,0,.7)); }
+.po-god span { font-size: 13px; font-weight: 800; color: #ffe08a; }
+@keyframes godIn { 0% { transform: scale(.3); opacity: 0; } 12% { transform: scale(1.12); opacity: 1; } 20% { transform: scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-20px); } }
 .po-actions { display: flex; gap: 8px; padding: 0 12px calc(var(--safe-b) + 14px); flex-wrap: wrap; position: relative; z-index: 20; }
 .po-actions .btn { flex: 1; min-width: 30%; }
 `);
@@ -90,7 +94,7 @@ export async function mount(root, { id, args }) {
     const prod = products(set).find((p) => p.kind === kind);
     const ev = set.ev * prod.packs;
     const chase = [...set.cards].sort((a, b) => b.price - a.price).slice(0, 10);
-    const cover = chase[0];
+    const covers = packCovers(set), cover = covers[0];
     const sealed = S.inv.cards.filter((c) => c.kind === 'sealed' && c.pkind === kind && c.v2);
     const locked = setLocked(set.id);
     root.innerHTML = `<div style="padding-bottom:24px">
@@ -98,7 +102,7 @@ export async function mount(root, { id, args }) {
       <div class="pk-hero"><div class="pk-float">${kind === 'booster' ? packHTML(set, cover, 168) : boxHTML(set, cover, kind, 240)}</div>
         <div class="nm">${esc(prod.name)}</div>
         <div class="sub">${esc(set.name)} · ${esc(ERA_NAME[set.era])} · ${set.cards.length} cartes</div>
-        <div class="chip" style="margin-top:4px">Valeur moyenne estimée : ${fmt(ev)}</div></div>
+        <div class="row" style="gap:6px;margin-top:4px;flex-wrap:wrap;justify-content:center"><div class="chip">Valeur moyenne : ${fmt(ev)}</div><div class="chip gold">${icon('crown', 12)} God pack : 1 sur ${Math.round(1 / GOD_P).toLocaleString('fr-FR')}</div></div></div>
       <div style="padding:10px 12px" class="col">
         ${locked ? `<button class="btn full lg" disabled>${icon('lock', 18)} Débloquée à ${fmtShort(setUnlock(set.id))} de fortune</button>` : `
         <button class="btn green full lg" data-open>Acheter et ouvrir · ${money(prod.price)}</button>
@@ -143,7 +147,9 @@ export async function mount(root, { id, args }) {
 
 // ---------------------------------------------------------------------------
 const LVL_COLOR = ['#9fb3c8', '#60a5fa', '#c084fc', '#e2e8f0', '#ffd66b'];
-const preload = (urls) => Promise.all(urls.map((u) => new Promise((res) => { const i = new Image(); i.decoding = 'async'; if (u.includes('tcgdex')) i.crossOrigin = 'anonymous'; i.onload = () => (i.decode ? i.decode().then(res, res) : res()); i.onerror = res; i.src = u; })));
+// never block the tear for more than 2.5 s, even on a slow network
+const preload = (urls) => Promise.race([new Promise((r) => setTimeout(r, 2500)), preloadAll(urls)]);
+const preloadAll = (urls) => Promise.all(urls.map((u) => new Promise((res) => { const i = new Image(); i.decoding = 'async'; if (u.includes('tcgdex')) i.crossOrigin = 'anonymous'; i.onload = () => (i.decode ? i.decode().then(res, res) : res()); i.onerror = res; i.src = u; })));
 
 export function openSession(set, nPacks, { cost = 0, game = 'boosters', onDone, again } = {}) {
   const next = stream(fair.bet(nPacks * 24 + 2));
@@ -188,7 +194,8 @@ export function openSession(set, nPacks, { cost = 0, game = 'boosters', onDone, 
     actions.innerHTML = nPacks - pi > 1 ? `<button class="btn" data-fast>${icon('fast', 16)} Tout ouvrir (${nPacks - pi})</button>` : '';
     $('[data-fast]', actions)?.addEventListener('click', () => { sfx.click(); summary(true); });
     const cards = packs[pi];
-    const cover = [...set.cards].sort((a, b) => b.price - a.price)[pi % 3];
+    const covs = packCovers(set), cover = covs[Math.floor(Math.random() * covs.length)];
+    const god = cards.every((e) => e.god);
     const p = el(`<div class="po-pack"><div class="body">${packHTML(set, cover, W * 0.86)}</div><div class="cap">${packHTML(set, cover, W * 0.86)}</div><div class="cut"></div><div class="tearzone"></div><div class="ld">Préparation…</div></div>`);
     stage.append(p);
     setHint('hand', 'Glisse le doigt le long du haut pour déchirer');
@@ -205,6 +212,7 @@ export function openSession(set, nPacks, { cost = 0, game = 'boosters', onDone, 
       while (!ready && !closed) await sleep(60);
       await sleep(260);
       p.classList.add('out');
+      if (god) godReveal();
       showDeck(cards);
     };
     const zone = $('.tearzone', p);
@@ -213,11 +221,23 @@ export function openSession(set, nPacks, { cost = 0, game = 'boosters', onDone, 
       if (startX == null || ripped) return;
       progress = Math.max(progress, Math.min(1, Math.abs(e.clientX - startX) / (W * 0.8)));
       cut.style.setProperty('--p', `${progress * 100}%`);
-      if (progress - lastSnd > 0.12) { lastSnd = progress; sfx.flip(); haptic(); }
+      if (progress - lastSnd > 0.08) { lastSnd = progress; sfx.tearStep(); haptic(); }
       if (progress >= 0.9) rip();
     });
     zone.addEventListener('pointerup', () => { if (!ripped && progress < 0.15) rip(); startX = null; });
     p.addEventListener('click', (e) => { if (e.target === zone || ripped) return; p.classList.remove('shake'); void p.offsetWidth; p.classList.add('shake'); setHint('hand', 'Glisse le long du haut… ou touche le haut du booster'); });
+  }
+
+  function godReveal() {
+    ach('godpack', true);
+    flash.style.setProperty('--fc', '#ffd66b');
+    flash.classList.remove('go'); void flash.offsetWidth; flash.classList.add('go');
+    rays.style.setProperty('--rc', 'rgba(255,214,107,.45)'); rays.classList.add('on');
+    sfx.godPack(); haptic(true);
+    confetti({ n: 220, coins: true, colors: ['#ffd66b', '#fff', '#f59e0b'] });
+    const g = el(`<div class="po-god"><b>GOD PACK</b><span>Toutes les cartes sont des cartes rares</span></div>`);
+    stage.append(g);
+    setTimeout(() => g.remove(), 2600);
   }
 
   // ---------------- deck: swipe cards one by one ----------------
@@ -291,7 +311,7 @@ export function openSession(set, nPacks, { cost = 0, game = 'boosters', onDone, 
       const old = top;
       old.classList.add('fly');
       old.style.transform = `translate(${dir * W * 1.4}px, ${slope * W * 0.6}px) rotate(${dir * 28}deg)`;
-      sfx.deal();
+      sfx.cardSlide();
       clearFx();
       setTimeout(() => old.remove(), 400);
       i++;

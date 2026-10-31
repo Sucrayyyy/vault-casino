@@ -1,10 +1,11 @@
 // Offline support: app shell + data precached, skin and card images cached on first view.
-const VERSION = 'vault-v2';
+const VERSION = 'vault-v3';
 const SHELL = [
   './',
   'css/app.css',
   'css/games.css',
   'data/cs.json',
+  'data/poke/30th.json',
   'data/poke/base1.json',
   'data/poke/base2.json',
   'data/poke/base5.json',

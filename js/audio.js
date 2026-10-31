@@ -258,6 +258,60 @@ export const sfx = {
     noise({ t: 0.25, v: 0.5, type: 'lowpass', f: 900, f2: 200 });
     tone({ type: 'sine', f: 200, f2: 60, t: 0.3, v: 0.4 });
   },
+  // Soft card-on-card rub when sliding a card away (kept quiet on purpose)
+  cardSlide(v = 1) {
+    if (!ok()) return;
+    const g = 0.055 * v;
+    noise({ t: 0.26, v: g, type: 'bandpass', f: 2600, f2: 1400, q: 0.7, a: 0.05 });
+    noise({ t: 0.18, v: g * 0.55, type: 'highpass', f: 5200, a: 0.03, when: 0.02 });
+    noise({ t: 0.12, v: g * 0.4, type: 'lowpass', f: 700, a: 0.02, when: 0.05 });
+  },
+  // Paper being torn a little more (booster tear in progress)
+  tearStep() {
+    if (!ok()) return;
+    noise({ t: 0.07, v: 0.09, type: 'bandpass', f: 3200 + Math.random() * 1500, q: 1.6, a: 0.004 });
+  },
+  // CS-style case: latch unlocks then the reel starts
+  caseOpen() {
+    if (!ok()) return;
+    tone({ type: 'square', f: 1400, f2: 900, t: 0.03, v: 0.06 });
+    tone({ type: 'square', f: 1100, f2: 700, t: 0.035, v: 0.06, when: 0.07 });
+    noise({ t: 0.05, v: 0.25, type: 'highpass', f: 3000, q: 0.8, when: 0.07 });
+    tone({ type: 'sine', f: 160, f2: 70, t: 0.18, v: 0.25, when: 0.08 });
+    noise({ t: 0.5, v: 0.12, type: 'bandpass', f: 600, f2: 2400, q: 1.1, a: 0.2, when: 0.12 });
+  },
+  // Crisp reel click, one per item passing the marker
+  caseTick() {
+    if (!ok()) return;
+    const t = now();
+    if (t - lastTick < 0.022) return;
+    lastTick = t;
+    noise({ t: 0.018, v: 0.22, type: 'highpass', f: 4500, q: 0.7, a: 0.001 });
+    tone({ type: 'triangle', f: 1750, f2: 1500, t: 0.035, v: 0.08, a: 0.001 });
+    tone({ type: 'sine', f: 420, t: 0.03, v: 0.05, a: 0.001 });
+  },
+  // Item landed: chime that grows with rarity (0 blue … 4 gold)
+  caseReveal(r = 0) {
+    if (!ok()) return;
+    const sets = [[76, 83], [76, 81, 88], [74, 81, 86, 93], [72, 79, 84, 91, 96], [72, 76, 79, 84, 88, 91, 96, 100]];
+    sets[Math.max(0, Math.min(4, r))].forEach((n, i) => {
+      tone({ type: 'sine', f: NOTE(n), t: 0.6, v: 0.12, when: i * 0.055 });
+      tone({ type: 'triangle', f: NOTE(n - 12), t: 0.35, v: 0.05, when: i * 0.055 });
+    });
+    noise({ t: 0.6 + r * 0.25, v: 0.05 + r * 0.02, type: 'highpass', f: 7000, a: 0.05 });
+    if (r >= 3) tone({ type: 'sawtooth', f: NOTE(48), t: 1.4, a: 0.08, v: 0.06 });
+    if (r >= 4) sfx.coins(12, 0.35);
+  },
+  godPack() {
+    if (!ok()) return;
+    [60, 64, 67, 72, 76, 79, 84, 88, 91, 96].forEach((n, i) => {
+      tone({ type: 'triangle', f: NOTE(n), t: 0.5, v: 0.12, when: i * 0.07 });
+      tone({ type: 'sine', f: NOTE(n + 12), t: 0.4, v: 0.05, when: i * 0.07 });
+    });
+    [48, 55, 60, 64].forEach((n) => tone({ type: 'sawtooth', f: NOTE(n), t: 2.2, a: 0.1, v: 0.045, when: 0.7 }));
+    noise({ t: 2, v: 0.1, type: 'highpass', f: 6500, a: 0.4, when: 0.5 });
+    sfx.coins(16, 0.8);
+  },
   ball() {
     if (!ok()) return;
     const t = now();
