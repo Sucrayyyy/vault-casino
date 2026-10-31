@@ -1,5 +1,5 @@
 // Offline support: app shell + data precached, skin and card images cached on first view.
-const VERSION = 'vault-v5';
+const VERSION = 'vault-v6';
 const SHELL = [
   './',
   'css/app.css',
@@ -79,7 +79,8 @@ const SHELL = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // cache: 'reload' so the precache never picks up stale files from the HTTP cache
+  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
@@ -109,6 +110,7 @@ self.addEventListener('fetch', (e) => {
     return;
   }
   if (url.origin !== location.origin) return;
+  if (url.pathname.endsWith('/version.json')) return; // always straight from the network
   // App files: network-first (fresh updates), cache fallback when offline
   e.respondWith(
     fetch(e.request, { cache: 'no-cache' })

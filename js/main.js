@@ -2,6 +2,7 @@ import {
   S, settings, saveSettings, bus, loadMode, hasSave, peekSave, netWorth, invValue, isStory, isUnlocked,
   dailyState, claimDaily, faucetLeft, faucetAmount, claimFaucet, claimRake, refill, ensureMissions, missionText,
   claimMission, ACH, fair, saveNow, START, cheats, saveCheats, checkGodPassword, credit, applyCode,
+  login, logout, listUsers, currentUser, userIdOf, exportSave, importSave,
 } from './store.js';
 import { GAMES, CHAPTERS, VIP, gameById } from './catalog.js';
 import { $, $$, el, fmt, fmtShort, fmtX, money, COIN, toast, sheet, confirmSheet, haptic, confetti, bigWinOverlay, countUp, esc, shake } from './ui.js';
@@ -24,6 +25,31 @@ const MODULES = {
   slots: './games/slots.js', cases: './cs/cases.js', upgrader: './cs/upgrader.js', battles: './cs/battles.js',
   boosters: './poke/packs.js', etb: './poke/packs.js', display: './poke/packs.js', grading: './poke/grading.js',
 };
+
+// ---------------- updates ----------------
+// Must match version.json. When the app stays open in memory (iPhone home-screen apps do)
+// and a new version is published, mixing old and new files breaks imports: reload instead.
+export const APP_VERSION = 6;
+let updatePending = false;
+function hardReload() {
+  if (S) saveNow();
+  try { sessionStorage.setItem('vault.reloaded', String(Date.now())); } catch (e) {}
+  const go = () => location.reload();
+  if ('caches' in window) caches.keys().then((ks) => Promise.all(ks.filter((k) => k.startsWith('vault-v')).map((k) => caches.delete(k)))).then(go, go);
+  else go();
+}
+async function checkVersion() {
+  try {
+    const r = await fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' });
+    const { v } = await r.json();
+    if (v > APP_VERSION) {
+      if (!current.startsWith('g/') || !S) hardReload();
+      else if (!updatePending) { updatePending = true; toast('Mise à jour disponible', { type: 'blue', icon: icon('refresh'), sub: 'Elle s’installe dès que tu quittes ce jeu', ms: 4000 }); }
+    }
+  } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkVersion(); });
+setInterval(checkVersion, 5 * 60000);
 
 // ---------------- audio unlock + settings ----------------
 const unlock = () => { unlockAudio(); audioSettings(settings); };
@@ -116,8 +142,10 @@ function setCleanup(res, r) {
 
 async function route() {
   const r = location.hash.replace(/^#\/?/, '');
+  if (!currentUser()) { renderLogin(); return; }
   if (!S) { renderSplash(); return; }
   if (cleanup) { try { cleanup(); } catch (e) { console.error(e); } cleanup = null; }
+  if (updatePending && !r.startsWith('g/')) { hardReload(); return; }
   current = r;
   view.scrollTop = 0;
   view.classList.remove('no-scroll');
@@ -138,7 +166,11 @@ async function route() {
       setCleanup(mod.mount(host, { id, args: rest }), r);
     } catch (e) {
       console.error(e);
-      view.innerHTML = `<div class="empty"><div class="e">${icon('warn', 34)}</div>Erreur de chargement<br><small class="mono">${esc(e.message)}</small></div>`;
+      // An outdated file was mixed with a newer one: reload once to get a consistent version
+      let last = 0; try { last = +sessionStorage.getItem('vault.reloaded') || 0; } catch (x) {}
+      if (Date.now() - last > 20000) { view.innerHTML = `<div class="empty" style="padding-top:30vh"><div class="e">${icon('refresh', 34)}</div>Mise à jour de l’app…</div>`; hardReload(); return; }
+      view.innerHTML = `<div class="empty"><div class="e">${icon('warn', 34)}</div>Erreur de chargement<br><small class="mono">${esc(e.message)}</small><div class="spacer"></div><button class="btn green" data-reload>Recharger l’app</button></div>`;
+      $('[data-reload]', view).onclick = () => hardReload();
     }
     return;
   }
@@ -397,6 +429,8 @@ function renderProfile(page) {
       ${sw('fast', 'Animations rapides', 'Accélère cartes, caisses et roues')}
       <button class="li" data-fair style="text-align:left"><div class="ic">${icon('shield')}</div><div class="tx"><b>Équité prouvable</b><small>Seeds, hash SHA-256 et nonce</small></div></button>
       <button class="li" data-god style="text-align:left"><div class="ic" style="color:#ffc800">${icon('crown')}</div><div class="tx"><b>God mode ${cheats.on ? '<span class="god-chip">ACTIF</span>' : ''}</b><small>Accès protégé par mot de passe</small></div>${icon('lock', 16)}</button>
+      <button class="li" data-switch style="text-align:left"><div class="ic">${icon('user')}</div><div class="tx"><b>Changer d’utilisateur</b><small>Connecté en tant que ${esc(settings.name)}</small></div></button>
+      <button class="li" data-export style="text-align:left"><div class="ic">${icon('key')}</div><div class="tx"><b>Exporter ma sauvegarde</b><small>Code à coller sur un autre appareil</small></div></button>
       <button class="li" data-mode style="text-align:left"><div class="ic">${icon('swap')}</div><div class="tx"><b>Changer de mode</b><small>Histoire / Bac à sable (sauvegardes séparées)</small></div></button>
       <button class="li" data-reset style="text-align:left"><div class="ic red">${icon('trash')}</div><div class="tx"><b class="red">Réinitialiser ce mode</b><small>Efface la progression de ${isStory() ? 'l’histoire' : 'du bac à sable'}</small></div></button>
     </div></div>
@@ -419,6 +453,17 @@ function renderProfile(page) {
   }));
   $('[data-fair]', page).onclick = () => { sfx.click(); openFairness(); };
   $('[data-god]', page).onclick = () => { sfx.click(); openGodMode(); };
+  $('[data-switch]', page).onclick = () => { sfx.click(); logout(); location.hash = '#/'; renderLogin(); };
+  $('[data-export]', page).onclick = () => {
+    sfx.click();
+    const code = exportSave();
+    const sh = sheet(`<h3>Exporter ma sauvegarde</h3><div class="muted" style="font-size:12.5px;margin-bottom:10px">Copie ce code et colle-le sur l’autre appareil (écran de connexion → Importer une sauvegarde).</div>
+      <textarea readonly style="width:100%;height:120px;border-radius:12px;background:rgba(10,26,40,.7);color:#fff;border:2px solid var(--line);padding:10px;font:11px ui-monospace,monospace;-webkit-user-select:text;user-select:text">${code}</textarea>
+      <div class="spacer"></div><button class="btn green full lg" data-copy>Copier le code</button>`, { center: true });
+    $('[data-copy]', sh.el).onclick = async () => {
+      try { await navigator.clipboard.writeText(code); toast('Code copié', { icon: icon('check') }); } catch (e) { const t = $('textarea', sh.el); t.select(); document.execCommand('copy'); toast('Code copié', { icon: icon('check') }); }
+    };
+  };
   $('[data-rename]', page).onclick = () => {
     const n = prompt('Ton pseudo', settings.name || 'Toi');
     if (n && n.trim()) { settings.name = n.trim().slice(0, 16); saveSettings(); route(); }
@@ -550,6 +595,68 @@ export function openFairness() {
   };
 }
 
+// ---------------- LOGIN (local accounts) ----------------
+function renderLogin() {
+  tabbar.classList.add('hidden-tabs');
+  topbar.style.display = 'none';
+  const users = listUsers();
+  view.innerHTML = `<div class="splash page-enter">
+    <div class="big-logo">${mascotSVG(MASCOTS[0], 64)}VAULT</div>
+    <div class="center muted" style="font-size:13px;margin-top:-6px">Casino · Skins · Cartes — 100 % virtuel</div>
+    <div class="spacer"></div>
+    <div class="panel col" style="gap:10px">
+      <b style="font-size:16px">Ton pseudo</b>
+      <div class="muted" style="font-size:12px;line-height:1.5">Ta progression est liée à ton pseudo sur cet appareil. Plusieurs joueurs peuvent partager le même téléphone.</div>
+      <div class="field"><div class="in">${icon('user', 16)}<input data-pseudo maxlength="16" placeholder="Ex : Sucray" autocomplete="nickname" autocapitalize="off"></div></div>
+      <button class="btn green full lg" data-go>Jouer</button>
+    </div>
+    ${users.length ? `<div class="label" style="margin-top:6px"><span>Profils sur cet appareil</span></div><div class="col">${users.map((u) => `<button class="li" data-u="${esc(u.name)}" style="text-align:left">${avatar(u.name, 34)}<div class="tx"><b>${esc(u.name)}</b><small>Dernière partie : ${new Date(u.last || u.created).toLocaleDateString('fr-FR')}</small></div>${icon('arrow', 18)}</button>`).join('')}</div>` : ''}
+    <button class="btn ghost full" data-import style="margin-top:6px">${icon('key', 16)} Importer une sauvegarde</button>
+  </div>`;
+  const inp = $('[data-pseudo]', view);
+  const enter = (name) => {
+    unlock();
+    if (userIdOf(name).length < 2) { sfx.error(); toast('Pseudo trop court (2 caractères minimum, lettres ou chiffres)', { type: 'red', icon: icon('warn') }); shake($('.field', view)); return; }
+    const u = login(name);
+    sfx.levelUp();
+    topbar.style.display = '';
+    toast(`Bienvenue ${esc(u.name)} !`, { icon: mascotSVG(MASCOTS[0], 28, '') });
+    if (settings.mode && hasSave(settings.mode)) bootUser(); else renderSplash();
+  };
+  $('[data-go]', view).onclick = () => enter(inp.value);
+  inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') enter(inp.value); });
+  $$('[data-u]', view).forEach((b) => (b.onclick = () => enter(b.dataset.u)));
+  $('[data-import]', view).onclick = () => {
+    const name = inp.value.trim();
+    if (userIdOf(name).length < 2) { sfx.error(); toast('Entre d’abord le pseudo à utiliser', { type: 'red', icon: icon('user') }); inp.focus(); return; }
+    openImport(() => enter(name), name);
+  };
+}
+
+function openImport(done, name) {
+  const s = sheet(`<h3>Importer une sauvegarde</h3>
+    <div class="muted" style="font-size:12.5px;margin-bottom:10px">Colle le code obtenu avec « Exporter ma sauvegarde » sur l’autre appareil.${name ? ` Il sera rangé dans le profil <b>${esc(name)}</b>.` : ''}</div>
+    <textarea data-code style="width:100%;height:120px;border-radius:12px;background:rgba(10,26,40,.7);color:#fff;border:2px solid var(--line);padding:10px;font:11px ui-monospace,monospace;-webkit-user-select:text;user-select:text"></textarea>
+    <div class="spacer"></div><button class="btn green full lg" data-ok>Importer</button>`, { center: true });
+  $('[data-ok]', s.el).onclick = () => {
+    const code = $('[data-code]', s.el).value;
+    if (name) login(name);
+    if (!importSave(code)) { sfx.error(); toast('Code invalide', { type: 'red', icon: icon('warn') }); return; }
+    sfx.levelUp(); toast('Sauvegarde importée', { icon: icon('check') });
+    s.close(); done?.();
+  };
+}
+
+function bootUser() {
+  loadMode(settings.mode);
+  checkNewMascots();
+  updateHomeIcon();
+  import('./poke/lobby.js').then((m) => m.refreshMarket());
+  startFeed();
+  topbar.style.display = '';
+  if (location.hash !== '#/') location.hash = '#/'; else route();
+}
+
 // ---------------- SPLASH / MODE SELECT ----------------
 function S_reset() {
   renderSplash(true);
@@ -635,13 +742,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
 }
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 
-if (settings.mode && hasSave(settings.mode)) {
-  loadMode(settings.mode);
-  checkNewMascots(); // already-unlocked ones are not announced
-  updateHomeIcon();
-  import('./poke/lobby.js').then((m) => m.refreshMarket());
-  startFeed();
-  route();
-} else {
-  renderSplash();
-}
+if (!currentUser()) renderLogin();
+else if (settings.mode && hasSave(settings.mode)) bootUser();
+else renderSplash();
+checkVersion();

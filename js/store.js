@@ -2,8 +2,17 @@
 import { Fair, sha256Hex } from './rng.js';
 import { GAMES, CHAPTERS, VIP, gameById } from './catalog.js';
 
-const KEY = (m) => `vault.save.${m}`;
-const SKEY = 'vault.settings';
+// ---------- users (local accounts: one pseudo = one save on this device) ----------
+const USERS_KEY = 'vault.users', CUR_KEY = 'vault.user';
+function safeParseRaw(s) { try { return JSON.parse(s) || null; } catch (e) { return null; } }
+let USER = localStorage.getItem(CUR_KEY) || null;
+const KEY = (m) => `vault.u.${USER}.save.${m}`;
+const SKEY = () => `vault.u.${USER}.settings`;
+const DEFAULT_SETTINGS = { sound: true, music: false, haptics: true, mode: null, fast: false, name: 'Toi' };
+
+export const userIdOf = (name) => String(name).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9_-]+/g, '').slice(0, 20);
+export const listUsers = () => (safeParseRaw(localStorage.getItem(USERS_KEY)) || []).sort((a, b) => (b.last || 0) - (a.last || 0));
+export const currentUser = () => (USER ? listUsers().find((u) => u.id === USER) || null : null);
 
 // ---------- tiny event bus ----------
 const handlers = {};
@@ -12,12 +21,63 @@ export const bus = {
   emit(ev, data) { handlers[ev]?.forEach((fn) => { try { fn(data); } catch (e) { console.error(e); } }); },
 };
 
-// ---------- settings ----------
-export const settings = Object.assign(
-  { sound: true, music: false, haptics: true, mode: null, fast: false, name: 'Toi' },
-  safeParse(localStorage.getItem(SKEY)),
-);
-export function saveSettings() { try { localStorage.setItem(SKEY, JSON.stringify(settings)); } catch (e) {} }
+// ---------- settings (per user) ----------
+export const settings = Object.assign({}, DEFAULT_SETTINGS, USER ? safeParse(localStorage.getItem(SKEY())) : {});
+export function saveSettings() { if (!USER) return; try { localStorage.setItem(SKEY(), JSON.stringify(settings)); } catch (e) {} }
+
+export function login(name) {
+  const pseudo = String(name || '').trim().slice(0, 16);
+  const id = userIdOf(pseudo);
+  if (id.length < 2) return null;
+  const users = listUsers();
+  let u = users.find((x) => x.id === id);
+  if (!u) {
+    u = { id, name: pseudo, created: Date.now() };
+    users.push(u);
+    // The very first account on a device inherits the pre-accounts save (V1 to V5)
+    if (users.length === 1) {
+      for (const m of ['sandbox', 'story']) {
+        const old = localStorage.getItem(`vault.save.${m}`);
+        if (old) { localStorage.setItem(`vault.u.${id}.save.${m}`, old); localStorage.removeItem(`vault.save.${m}`); }
+      }
+      const oldS = localStorage.getItem('vault.settings');
+      if (oldS) { localStorage.setItem(`vault.u.${id}.settings`, oldS); localStorage.removeItem('vault.settings'); }
+    }
+  }
+  u.last = Date.now();
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  USER = id;
+  localStorage.setItem(CUR_KEY, id);
+  for (const k of Object.keys(settings)) delete settings[k];
+  Object.assign(settings, DEFAULT_SETTINGS, safeParse(localStorage.getItem(SKEY())), { name: u.name });
+  saveSettings();
+  for (const k of Object.keys(cheats)) delete cheats[k];
+  Object.assign(cheats, { on: false, luck: 0, god: 1, hits: 1, rare: 1, payout: 1 }, settings.cheats || {});
+  cheats.once ||= {};
+  S = null; fair = null;
+  return u;
+}
+export function logout() {
+  if (S) saveNow();
+  USER = null; S = null; fair = null;
+  localStorage.removeItem(CUR_KEY);
+}
+
+// Portable save code to move a profile to another device
+export function exportSave() {
+  if (S) saveNow();
+  const data = { v: 1, name: settings.name, settings, saves: {} };
+  for (const m of ['sandbox', 'story']) { const raw = localStorage.getItem(KEY(m)); if (raw) data.saves[m] = JSON.parse(raw); }
+  return btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+}
+export function importSave(code) {
+  let data;
+  try { data = JSON.parse(decodeURIComponent(escape(atob(String(code).trim())))); } catch (e) { return false; }
+  if (!data || !data.saves) return false;
+  for (const m of ['sandbox', 'story']) if (data.saves[m]) localStorage.setItem(KEY(m), JSON.stringify(data.saves[m]));
+  if (data.settings) { Object.assign(settings, data.settings, { name: settings.name }); saveSettings(); }
+  return true;
+}
 
 function safeParse(s) { try { return JSON.parse(s) || {}; } catch (e) { return {}; } }
 
