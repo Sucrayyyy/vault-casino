@@ -1,0 +1,64 @@
+// Hand-drawn 24×24 stroke icon set used everywhere instead of emoji.
+const P = {
+  gift: '<rect x="3" y="9" width="18" height="12" rx="2"/><path d="M2 9h20M12 9v12"/><path d="M12 9c-2-5-7-5-6-2 .6 2 6 2 6 2zm0 0c2-5 7-5 6-2-.6 2-6 2-6 2z"/>',
+  chest: '<path d="M3 10a6 6 0 016-6h6a6 6 0 016 6v10H3z"/><path d="M3 12h18"/><rect x="10" y="10" width="4" height="5" rx="1"/>',
+  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/>',
+  trophy: '<path d="M7 4h10v5a5 5 0 01-10 0z"/><path d="M7 6H4a3 3 0 003 4M17 6h3a3 3 0 01-3 4M12 14v4M8 21h8M9 18h6"/>',
+  bolt: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+  flame: '<path d="M12 22c-4 0-7-3-7-7 0-4 3-6 4-10 2 2 3 4 3 6 1-1 2-2 2-4 3 3 5 5 5 8 0 4-3 7-7 7z"/>',
+  cards: '<rect x="3" y="5" width="11" height="15" rx="2" transform="rotate(-8 8 12)"/><rect x="10" y="4" width="11" height="15" rx="2" transform="rotate(8 15 11)"/>',
+  crown: '<path d="M3 18l2-11 5 5 2-7 2 7 5-5 2 11z"/><path d="M3 21h18"/>',
+  gem: '<path d="M6 3h12l4 6-10 12L2 9z"/><path d="M2 9h20M9 3l3 18 3-18"/>',
+  book: '<path d="M4 4h6a3 3 0 013 3v14a2 2 0 00-2-2H4z"/><path d="M20 4h-6a3 3 0 00-3 3v14a2 2 0 012-2h7z"/>',
+  lock: '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/>',
+  check: '<path d="M4 12l5 5L20 6"/>',
+  close: '<path d="M5 5l14 14M19 5L5 19"/>',
+  refresh: '<path d="M20 11a8 8 0 10-2.3 5.7"/><path d="M20 4v7h-7"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/>',
+  shield: '<path d="M12 2l8 3v6c0 5-3.5 9.5-8 11-4.5-1.5-8-6-8-11V5z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
+  chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  box: '<path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/>',
+  star: '<path d="M12 2l3 7h7l-5.5 4.5 2 7.5L12 17l-6.5 4 2-7.5L2 9h7z"/>',
+  skull: '<path d="M12 3C7 3 4 6.5 4 11c0 3 1.5 5 3 6v3h10v-3c1.5-1 3-3 3-6 0-4.5-3-8-8-8z"/><circle cx="9" cy="12" r="1.8" fill="currentColor"/><circle cx="15" cy="12" r="1.8" fill="currentColor"/><path d="M10 20v-2M14 20v-2"/>',
+  swords: '<path d="M14 4h6v6L9 21l-3-3zM10 4H4v6l4 4M17 17l3 3M6 18l-3 3"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>',
+  sparkle: '<path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/><path d="M19 3v4M17 5h4"/>',
+  volume: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4 4 0 010 6M19 6a8 8 0 010 12"/>',
+  music: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
+  vibrate: '<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M3 8v8M21 8v8"/>',
+  fast: '<path d="M3 5l8 7-8 7zM12 5l8 7-8 7z"/>',
+  trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14"/>',
+  swap: '<path d="M4 8h14l-4-4M20 16H6l4 4"/>',
+  coins: '<ellipse cx="9" cy="7" rx="6" ry="3"/><path d="M3 7v4c0 1.7 2.7 3 6 3s6-1.3 6-3V7"/><path d="M9 14v3c0 1.7 2.7 3 6 3s6-1.3 6-3v-4c0-1.7-2.7-3-6-3"/>',
+  dice: '<rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8" cy="8" r="1.4" fill="currentColor"/><circle cx="16" cy="16" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/>',
+  spade: '<path d="M12 3c-3 4-8 6-8 10a4 4 0 007 2.6L10 21h4l-1-5.4A4 4 0 0020 13c0-4-5-6-8-10z"/>',
+  portal: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"/>',
+  bag: '<path d="M5 8h14l-1 13H6z"/><path d="M9 8V6a3 3 0 016 0v2"/>',
+  up: '<path d="M12 20V4M5 11l7-7 7 7"/>',
+  down: '<path d="M12 4v16M5 13l7 7 7-7"/>',
+  warn: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/>',
+  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  medal: '<circle cx="12" cy="15" r="6"/><path d="M8 3l3 7M16 3l-3 7M12 12v6"/>',
+  plane: '<path d="M2 16l20-8-6 12-3-5z"/><path d="M13 15l-4 5"/>',
+  egg: '<path d="M12 3c4 0 7 6 7 11a7 7 0 01-14 0c0-5 3-11 7-11z"/>',
+  bomb: '<circle cx="11" cy="14" r="7"/><path d="M15 8l2-2M18 4l1-1M19 7h2"/>',
+  hand: '<path d="M8 13V5a1.5 1.5 0 013 0v6M11 11V4a1.5 1.5 0 013 0v7M14 11V5.5a1.5 1.5 0 013 0V14c0 4-2.5 7-6.5 7S6 19 4.5 16L3 13a1.5 1.5 0 012.6-1.5L8 15"/>',
+  arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  back: '<path d="M15 4l-8 8 8 8"/>',
+  wallet: '<path d="M3 7a2 2 0 012-2h13v3H5"/><rect x="3" y="7" width="18" height="13" rx="2"/><circle cx="16.5" cy="13.5" r="1.6" fill="currentColor"/>',
+  ticket: '<path d="M3 7h18v3a2 2 0 000 4v3H3v-3a2 2 0 000-4z"/><path d="M14 7v10" stroke-dasharray="2 2"/>',
+  key: '<circle cx="8" cy="14" r="4"/><path d="M11 11l9-9M17 5l2 2M15 7l2 2"/>',
+  layers: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
+  percent: '<path d="M19 5L5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/>',
+};
+
+export function icon(name, size = 20, extra = '') {
+  return `<svg class="ico" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${extra}>${P[name] || P.star}</svg>`;
+}
+
+// Colored rounded badge with an icon (used in quick actions, lists, achievements)
+export function badge(name, c1, c2, size = 34) {
+  return `<span class="ibadge" style="width:${size}px;height:${size}px;background:linear-gradient(135deg,${c1},${c2})">${icon(name, Math.round(size * 0.56), 'stroke="#fff"')}</span>`;
+}

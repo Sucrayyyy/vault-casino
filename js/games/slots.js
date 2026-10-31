@@ -4,14 +4,16 @@ import { weighted } from '../rng.js';
 import { sfx } from '../audio.js';
 
 // RTP 96.5 % (5 lines × Σ p³·pay)
+// Original vector symbols
+const SV = (inner) => `<svg viewBox="0 0 64 64" width="58" height="58">${inner}</svg>`;
 const SYMS = [
-  { id: 'cherry', g: '🍒', w: 30, pay: 2.5 },
-  { id: 'lemon', g: '🍋', w: 25, pay: 3 },
-  { id: 'orange', g: '🍊', w: 20, pay: 5 },
-  { id: 'grape', g: '🍇', w: 14, pay: 10 },
-  { id: 'bell', g: '🔔', w: 8, pay: 25 },
-  { id: 'gem', g: '💎', w: 2.5, pay: 100 },
-  { id: 'seven', g: '<b class="seven">7</b>', w: 1.2, pay: 500 },
+  { id: 'cherry', w: 30, pay: 2.5, g: SV('<path d="M30 8c-6 8-12 14-16 26M30 8c4 8 10 16 18 22" stroke="#3f7d20" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M30 8c6-4 14-4 18 0-6 4-12 4-18 0z" fill="#5cb02e"/><circle cx="16" cy="44" r="12" fill="#d1122f"/><circle cx="46" cy="40" r="12" fill="#e11d48"/><circle cx="12" cy="40" r="3.5" fill="#fff" opacity=".6"/><circle cx="42" cy="36" r="3.5" fill="#fff" opacity=".6"/>') },
+  { id: 'lemon', w: 25, pay: 3, g: SV('<ellipse cx="32" cy="34" rx="24" ry="18" fill="#facc15" transform="rotate(-20 32 34)"/><path d="M8 40l-4 4M56 28l4-4" stroke="#eab308" stroke-width="5" stroke-linecap="round"/><ellipse cx="24" cy="28" rx="8" ry="4" fill="#fff" opacity=".45" transform="rotate(-20 24 28)"/>') },
+  { id: 'orange', w: 20, pay: 5, g: SV('<circle cx="32" cy="36" r="22" fill="#f97316"/><circle cx="32" cy="36" r="22" fill="none" stroke="#ea580c" stroke-width="2" stroke-dasharray="1 5"/><path d="M32 14c2-6 8-8 14-6-2 6-8 8-14 6z" fill="#4d9b2a"/><circle cx="24" cy="28" r="5" fill="#fff" opacity=".4"/>') },
+  { id: 'grape', w: 14, pay: 10, g: SV('<path d="M32 6v10" stroke="#65a30d" stroke-width="4" stroke-linecap="round"/>' + [[24, 22], [40, 22], [16, 34], [32, 34], [48, 34], [24, 46], [40, 46], [32, 57]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="9" fill="#7c3aed"/><circle cx="${x - 3}" cy="${y - 3}" r="2.5" fill="#fff" opacity=".45"/>`).join('')) },
+  { id: 'bell', w: 8, pay: 25, g: SV('<path d="M32 8c-11 0-16 9-16 20v10l-6 8h44l-6-8V28c0-11-5-20-16-20z" fill="#fbbf24" stroke="#b45309" stroke-width="2"/><circle cx="32" cy="52" r="6" fill="#b45309"/><path d="M24 20c2-4 6-6 10-6" stroke="#fff" stroke-width="3" opacity=".6" fill="none" stroke-linecap="round"/>') },
+  { id: 'gem', w: 2.5, pay: 100, g: SV('<polygon points="10,24 22,10 42,10 54,24 32,56" fill="#38bdf8"/><polygon points="10,24 54,24 32,56" fill="#0ea5e9"/><polygon points="22,10 27,24 37,24 42,10" fill="#c8fbff"/><polygon points="27,24 37,24 32,56" fill="#7dd3fc"/>') },
+  { id: 'seven', w: 1.2, pay: 500, g: '<b class="seven">7</b>' },
 ];
 const LINES = [[[0, 0], [1, 0], [2, 0]], [[0, 1], [1, 1], [2, 1]], [[0, 2], [1, 2], [2, 2]], [[0, 0], [1, 1], [2, 2]], [[0, 2], [1, 1], [2, 0]]];
 const CELL = 92;
@@ -23,20 +25,21 @@ css('slots', `
 .slot-win { display: flex; gap: 4px; background: #12061f; padding: 8px; border-radius: 10px; position: relative; }
 .slot-reel { width: ${CELL}px; height: ${CELL * 3}px; overflow: hidden; border-radius: 6px; background: linear-gradient(180deg, #ddd, #fff 20%, #fff 80%, #ddd); position: relative; }
 .slot-strip { position: absolute; left: 0; right: 0; top: 0; will-change: transform; }
-.slot-cell { height: ${CELL}px; display: grid; place-items: center; font-size: 50px; line-height: 1; transition: background .2s; }
+.slot-cell { height: ${CELL}px; display: grid; place-items: center; line-height: 1; transition: background .2s; }
 .slot-cell .seven { font-family: Inter; font-weight: 900; font-style: italic; font-size: 64px; color: #e11d48; text-shadow: 0 3px 0 #7f1d1d; }
 .slot-cell.hit { background: rgba(0,231,1,.28); animation: cellHit .6s ease-in-out infinite alternate; }
 @keyframes cellHit { to { background: rgba(255,200,0,.4); } }
 .slot-lines { position: absolute; inset: 8px; pointer-events: none; }
 .slot-pay { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; width: 100%; max-width: 360px; margin-top: 12px; }
 .slot-pay div { background: var(--bg2); border-radius: 6px; padding: 4px; text-align: center; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 4px; }
-.slot-pay .seven { font-family: Inter; color: #e11d48; font-style: italic; }
+.slot-pay .seven { font-family: Inter; color: #e11d48; font-style: italic; font-size: 16px; }
+.slot-pay .ps svg { width: 18px; height: 18px; vertical-align: -4px; }
 `);
 
 export function mount(root) {
   const { stage, controls } = gameLayout(root, { id: 'slots', edge: '3,5 %' });
   const box = el(`<div class="slot-stage"><div class="slot-machine"><div class="slot-title">FRUIT VAULT</div><div class="slot-win">${[0, 1, 2].map(() => '<div class="slot-reel"><div class="slot-strip"></div></div>').join('')}<svg class="slot-lines" viewBox="0 0 ${CELL * 3 + 8} ${CELL * 3}"></svg></div></div>
-    <div class="slot-pay">${SYMS.map((s) => `<div>${s.g.replace('class="seven"', 'class="seven"')}×3 = ${s.pay}×</div>`).join('')}<div>5 lignes</div></div></div>`);
+    <div class="slot-pay">${SYMS.map((s) => `<div><span class="ps">${s.g}</span>${s.pay}×</div>`).join('')}<div>5 lignes</div></div></div>`);
   stage.append(box);
   const reels = $$('.slot-strip', box);
   const svg = $('.slot-lines', box);

@@ -9,6 +9,7 @@ import { sfx, unlockAudio, audioSettings } from './audio.js';
 import { thumb } from './thumbs.js';
 import { startFeed, getFeed, avatar, leaderboard, gameName } from './bots.js';
 import { sha256Hex } from './rng.js';
+import { icon, badge } from './icons.js';
 
 const view = $('#view');
 const topbar = $('#topbar');
@@ -24,8 +25,7 @@ const MODULES = {
 
 // ---------------- audio unlock + settings ----------------
 const unlock = () => { unlockAudio(); audioSettings(settings); };
-window.addEventListener('pointerdown', unlock, { capture: true });
-window.addEventListener('touchend', unlock, { capture: true });
+['pointerdown', 'touchend', 'click', 'keydown'].forEach((ev) => window.addEventListener(ev, unlock, { capture: true, passive: true }));
 document.addEventListener('click', (e) => { if (e.target.closest('button')) haptic(); }, { capture: true });
 
 // ---------------- topbar ----------------
@@ -96,6 +96,14 @@ function goBack() {
 }
 window.addEventListener('hashchange', route);
 
+// mount() may be sync or async and may return a cleanup function
+function setCleanup(res, r) {
+  Promise.resolve(res).then((fn) => {
+    if (typeof fn !== 'function') return;
+    if (current === r && !cleanup) cleanup = fn; else fn();
+  });
+}
+
 async function route() {
   const r = location.hash.replace(/^#\/?/, '');
   if (!S) { renderSplash(); return; }
@@ -109,18 +117,18 @@ async function route() {
     const [id, ...rest] = r.slice(2).split('/');
     const g = gameById[id];
     if (!g || !MODULES[id]) { go(''); return; }
-    if (!isUnlocked(id)) { toast(`Débloqué à ${fmt(g.unlock)} de fortune`, { type: 'red', icon: '🔒' }); go(''); return; }
-    view.innerHTML = '<div class="empty" style="padding-top:30vh"><div class="e">⏳</div>Chargement…</div>';
+    if (!isUnlocked(id)) { toast(`Débloqué à ${fmt(g.unlock)} de fortune`, { type: 'red', icon: icon('lock') }); go(''); return; }
+    view.innerHTML = `<div class="empty" style="padding-top:30vh"><div class="e">${icon('clock', 34)}</div>Chargement…</div>`;
     try {
       const mod = await import(MODULES[id]);
       if (current !== r) return;
       view.innerHTML = '';
       const host = el('<div class="page-enter" style="min-height:100%;display:flex;flex-direction:column"></div>');
       view.append(host);
-      cleanup = mod.mount(host, { id, args: rest }) || null;
+      setCleanup(mod.mount(host, { id, args: rest }), r);
     } catch (e) {
       console.error(e);
-      view.innerHTML = `<div class="empty"><div class="e">⚠️</div>Erreur de chargement<br><small class="mono">${esc(e.message)}</small></div>`;
+      view.innerHTML = `<div class="empty"><div class="e">${icon('warn', 34)}</div>Erreur de chargement<br><small class="mono">${esc(e.message)}</small></div>`;
     }
     return;
   }
@@ -130,8 +138,8 @@ async function route() {
   view.innerHTML = '';
   view.append(page);
   const root = r.split('/')[0];
-  if (root === 'cs') cleanup = (await import('./cs/lobby.js')).mount(page, tileGrid);
-  else if (root === 'poke') cleanup = (await import('./poke/lobby.js')).mount(page, tileGrid);
+  if (root === 'cs') setCleanup((await import('./cs/lobby.js')).mount(page, tileGrid), r);
+  else if (root === 'poke') setCleanup((await import('./poke/lobby.js')).mount(page, tileGrid), r);
   else if (root === 'bonus') cleanup = renderBonus(page);
   else if (root === 'profil') cleanup = renderProfile(page);
   else cleanup = renderHome(page);
@@ -150,7 +158,7 @@ export function tileGrid(games, scroll = false) {
     const fresh = isStory() && !locked && g.unlock > 0 && S.seenUnlock[g.id] === 1;
     const t = el(`<button class="tile">${thumb(g)}${locked ? `<div class="lock"><svg width="22" height="22" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2" fill="#fff"/><path d="M8 10V7a4 4 0 018 0v3" stroke="#fff" stroke-width="2.4" fill="none"/></svg><b>${COIN}${fmtShort(g.unlock)}</b>de fortune</div>` : `<div class="players"><i></i>${playersOnline(g.id)}</div>`}${fresh ? '<div class="new">NOUVEAU</div>' : ''}</button>`);
     t.onclick = () => {
-      if (locked) { sfx.error(); toast(`Atteins <b>${fmt(g.unlock)}</b> de fortune pour débloquer ${g.name}`, { type: 'red', icon: '🔒', sub: `Fortune actuelle : ${fmt(netWorth())}` }); return; }
+      if (locked) { sfx.error(); toast(`Atteins <b>${fmt(g.unlock)}</b> de fortune pour débloquer ${g.name}`, { type: 'red', icon: icon('lock'), sub: `Fortune actuelle : ${fmt(netWorth())}` }); return; }
       if (S.seenUnlock[g.id] === 1) { S.seenUnlock[g.id] = 2; }
       sfx.click(); go('g/' + g.id);
     };
@@ -171,7 +179,7 @@ function renderHome(page) {
 
   const hero = story && ch ? `
     <div class="hero" style="background:linear-gradient(120deg,#0b3d1f,#0f212e 70%)">
-      <svg class="hbg" viewBox="0 0 400 140" preserveAspectRatio="xMaxYMid slice"><circle cx="350" cy="40" r="90" fill="#00e701" opacity=".09"/><circle cx="330" cy="70" r="46" fill="#00e701" opacity=".12"/><text x="330" y="88" text-anchor="middle" font-size="52">🏆</text></svg>
+      <svg class="hbg" viewBox="0 0 400 140" preserveAspectRatio="xMaxYMid slice"><circle cx="350" cy="40" r="90" fill="#00e701" opacity=".09"/><circle cx="330" cy="70" r="46" fill="#00e701" opacity=".12"/></svg>
       <div class="chip green">MODE HISTOIRE · CHAPITRE ${S.chapter + 1}/${CHAPTERS.length}</div>
       <div class="t">${ch.title}</div>
       <div class="s">Atteins ${money(ch.goal)} de fortune${nextGame ? ` · prochain déblocage : <b>${nextGame.name}</b> à ${fmtShort(nextGame.unlock)}` : ''}</div>
@@ -179,7 +187,7 @@ function renderHome(page) {
       <div class="s" style="display:flex;justify-content:space-between;max-width:100%"><span>${fmt(nw)}</span><span>Récompense : ${money(ch.reward)}</span></div>
     </div>` : `
     <div class="hero" style="background:linear-gradient(120deg,#123a63,#0f212e 75%)">
-      <svg class="hbg" viewBox="0 0 400 140" preserveAspectRatio="xMaxYMid slice"><circle cx="340" cy="50" r="90" fill="#1475e1" opacity=".18"/><text x="330" y="92" text-anchor="middle" font-size="58">${story ? '👑' : '💎'}</text></svg>
+      <svg class="hbg" viewBox="0 0 400 140" preserveAspectRatio="xMaxYMid slice"><circle cx="340" cy="50" r="90" fill="#1475e1" opacity=".18"/></svg>
       <div class="chip">${story ? 'HISTOIRE TERMINÉE' : 'BAC À SABLE'}</div>
       <div class="t">${story ? 'Tu possèdes le Vault.' : 'Deviens le plus riche du Vault'}</div>
       <div class="s">Classement : <b>#${myRank}</b> sur ${lb.length} joueurs · fortune ${money(nw)}</div>
@@ -189,9 +197,9 @@ function renderHome(page) {
   page.innerHTML = `
     ${hero}
     <div class="sec" style="margin-top:14px"><div class="quick" data-quick></div></div>
-    <div class="sec"><div class="sec-head"><div class="h2">🔥 Vault Originals</div><span class="more">${GAMES.filter((g) => g.sec === 'casino').length} jeux</span></div><div data-orig></div></div>
-    <div class="sec"><div class="sec-head"><div class="h2">🃏 Jeux de table</div></div><div data-table></div></div>
-    <div class="sec"><div class="sec-head"><div class="h2">🎁 Autres univers</div></div><div data-other></div></div>
+    <div class="sec"><div class="sec-head"><div class="h2">${icon('flame', 18)} Vault Originals</div><span class="more">${GAMES.filter((g) => g.sec === 'casino').length} jeux</span></div><div data-orig></div></div>
+    <div class="sec"><div class="sec-head"><div class="h2">${icon('spade', 18)} Jeux de table</div></div><div data-table></div></div>
+    <div class="sec"><div class="sec-head"><div class="h2">${icon('portal', 18)} Autres univers</div></div><div data-other></div></div>
     <div class="sec"><div class="sec-head"><div class="h2"><span style="width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)"></span>Paris en direct</div></div>
       <table class="table"><thead><tr><th>Jeu</th><th>Joueur</th><th>Multi.</th><th>Gain</th></tr></thead><tbody data-feed></tbody></table></div>`;
 
@@ -223,11 +231,11 @@ function renderQuick(q) {
     const fl = faucetLeft();
     const doneM = S.missions.list.filter((m) => m.done && !m.claimed).length;
     q.innerHTML = `
-      <button data-q="daily"><div class="ic" style="background:linear-gradient(135deg,#ffd84d,#f59e0b)">🎁</div>Quotidien${d.can ? '<i class="badge-dot"></i>' : `<span class="cd">Jour ${d.streak}/7</span>`}</button>
-      <button data-q="faucet"><div class="ic" style="background:linear-gradient(135deg,#34d399,#059669)">💰</div>Coffre${fl === 0 ? '<i class="badge-dot"></i>' : `<span class="cd">${cdText(fl)}</span>`}</button>
-      <button data-q="missions"><div class="ic" style="background:linear-gradient(135deg,#60a5fa,#2563eb)">🎯</div>Missions${doneM ? '<i class="badge-dot"></i>' : `<span class="cd">${S.missions.list.filter((m) => m.claimed).length}/3</span>`}</button>
-      ${isStory() ? `<button data-q="lb"><div class="ic" style="background:linear-gradient(135deg,#c084fc,#7c3aed)">🏆</div>Classement<span class="cd">#${leaderboard().findIndex((r) => r.me) + 1}</span></button>`
-        : `<button data-q="refill"><div class="ic" style="background:linear-gradient(135deg,#f472b6,#db2777)">⚡</div>Recharger<span class="cd">+10 000</span></button>`}`;
+      <button data-q="daily">${badge('gift', '#ffd84d', '#f59e0b')}Quotidien${d.can ? '<i class="badge-dot"></i>' : `<span class="cd">Jour ${d.streak}/7</span>`}</button>
+      <button data-q="faucet">${badge('chest', '#34d399', '#059669')}Coffre${fl === 0 ? '<i class="badge-dot"></i>' : `<span class="cd">${cdText(fl)}</span>`}</button>
+      <button data-q="missions">${badge('target', '#60a5fa', '#2563eb')}Missions${doneM ? '<i class="badge-dot"></i>' : `<span class="cd">${S.missions.list.filter((m) => m.claimed).length}/3</span>`}</button>
+      ${isStory() ? `<button data-q="lb">${badge('trophy', '#c084fc', '#7c3aed')}Classement<span class="cd">#${leaderboard().findIndex((r) => r.me) + 1}</span></button>`
+        : `<button data-q="refill">${badge('bolt', '#f472b6', '#db2777')}Recharger<span class="cd">+10 000</span></button>`}`;
     $$('button', q).forEach((b) => (b.onclick = () => quickAction(b.dataset.q, draw)));
   };
   draw();
@@ -240,23 +248,23 @@ function quickAction(k, redraw) {
   if (k === 'daily') openDaily(redraw);
   if (k === 'faucet') {
     const a = claimFaucet();
-    if (a) { sfx.cashout(); confetti({ n: 60, coins: true, y: 0.3 }); toast(`+${fmt(a)} récupérés dans le coffre`, { icon: '💰', sub: 'Reviens dans 15 min pour le prochain' }); }
-    else { sfx.error(); toast(`Coffre disponible dans ${cdText(faucetLeft())}`, { type: 'blue', icon: '⏳', sub: `Prochain montant : ${fmt(faucetAmount())}` }); }
+    if (a) { sfx.cashout(); confetti({ n: 60, coins: true, y: 0.3 }); toast(`+${fmt(a)} récupérés dans le coffre`, { icon: icon('chest'), sub: 'Reviens dans 15 min pour le prochain' }); }
+    else { sfx.error(); toast(`Coffre disponible dans ${cdText(faucetLeft())}`, { type: 'blue', icon: icon('clock'), sub: `Prochain montant : ${fmt(faucetAmount())}` }); }
   }
   if (k === 'missions') go('bonus');
   if (k === 'lb') openLeaderboard();
-  if (k === 'refill') { refill(); sfx.cashout(); toast('+10 000 ajoutés (bac à sable)', { icon: '⚡' }); }
+  if (k === 'refill') { refill(); sfx.cashout(); toast('+10 000 ajoutés (bac à sable)', { icon: icon('bolt') }); }
   redraw?.();
 }
 
 function openDaily(redraw) {
   const d = dailyState();
-  const s = sheet(`<h3>🎁 Bonus quotidien</h3>
+  const s = sheet(`<h3>Bonus quotidien</h3>
     <div class="muted" style="font-size:12.5px;margin-bottom:12px">Reviens chaque jour pour faire grimper ta série. Le jour 7 rapporte ×8 !</div>
     <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:14px">
       ${d.table.map((m, i) => {
         const day = i + 1, got = d.can ? day < d.nextDay : day <= d.streak, today = d.can && day === d.nextDay;
-        return `<div style="border-radius:8px;padding:8px 2px;text-align:center;font-size:10.5px;background:${today ? 'linear-gradient(180deg,#ffd84d,#f59e0b)' : got ? 'rgba(0,231,1,.15)' : 'var(--bg3)'};color:${today ? '#3a2400' : got ? 'var(--green)' : 'var(--txt2)'};${today ? 'transform:scale(1.08);box-shadow:0 4px 14px rgba(255,200,0,.4)' : ''}"><div style="font-size:16px">${got ? '✓' : day === 7 ? '👑' : '🎁'}</div>J${day}<div style="font-weight:900">×${m}</div></div>`;
+        return `<div style="border-radius:8px;padding:8px 2px;text-align:center;font-size:10.5px;background:${today ? 'linear-gradient(180deg,#ffd84d,#f59e0b)' : got ? 'rgba(0,231,1,.15)' : 'var(--bg3)'};color:${today ? '#3a2400' : got ? 'var(--green)' : 'var(--txt2)'};${today ? 'transform:scale(1.08);box-shadow:0 4px 14px rgba(255,200,0,.4)' : ''}"><div style="display:grid;place-items:center;height:20px">${icon(got ? 'check' : day === 7 ? 'crown' : 'gift', 16)}</div>J${day}<div style="font-weight:900">×${m}</div></div>`;
       }).join('')}
     </div>
     <button class="btn gold full lg ${d.can ? 'pulse' : ''}" ${d.can ? '' : 'disabled'} data-claim>${d.can ? `Récupérer ${fmt(d.amount)}` : 'Déjà récupéré aujourd’hui'}</button>`);
@@ -272,8 +280,8 @@ function openDaily(redraw) {
 function openLeaderboard() {
   const lb = leaderboard();
   const meIdx = lb.findIndex((r) => r.me);
-  const medal = (i) => (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `<span class="dim">#${i + 1}</span>`);
-  sheet(`<h3>🏆 Classement des fortunes</h3>
+  const medal = (i) => (i < 3 ? `<span style="color:${['#ffc800', '#cbd5e1', '#d97a3a'][i]};display:grid;place-items:center">${icon('medal', 20)}</span>` : `<span class="dim">#${i + 1}</span>`);
+  sheet(`<h3>Classement des fortunes</h3>
     <div class="list">${lb.slice(0, 25).map((r, i) => `<div class="li" style="${r.me ? 'outline:2px solid var(--green)' : ''};padding:9px 12px"><div style="width:28px;text-align:center;font-weight:900">${medal(i)}</div>${avatar(r.name, 30)}<div class="tx"><b>${esc(r.name)}${r.me ? ' (toi)' : ''}</b></div>${money(r.worth)}</div>`).join('')}
     ${meIdx >= 25 ? `<div class="li" style="outline:2px solid var(--green)"><div style="width:28px;text-align:center" class="dim">#${meIdx + 1}</div>${avatar('Toi', 30)}<div class="tx"><b>Toi</b></div>${money(lb[meIdx].worth)}</div>` : ''}</div>`);
 }
@@ -288,15 +296,15 @@ function openWallet() {
       <div class="stat" style="grid-column:span 2"><small>Fortune totale</small><b style="font-size:20px">${money(netWorth())}</b></div>
     </div>
     <div class="spacer"></div>
-    <div class="muted" style="font-size:11.5px;line-height:1.5;margin-bottom:12px">💡 Monnaie 100 % virtuelle, sans aucune valeur réelle. Impossible d’acheter ou de retirer de l’argent réel.</div>
+    <div class="muted" style="font-size:11.5px;line-height:1.5;margin-bottom:12px">Monnaie 100 % virtuelle, sans aucune valeur réelle. Impossible d’acheter ou de retirer de l’argent réel.</div>
     <div class="col">
-      ${isStory() ? '' : '<button class="btn blue full" data-refill>⚡ Recharger +10 000 (bac à sable)</button>'}
-      <button class="btn full" data-faucet>💰 Coffre gratuit ${faucetLeft() ? `(${cdText(faucetLeft())})` : '— disponible !'}</button>
-      <button class="btn full" data-rake>♻️ Rakeback : ${fmt(S.rake)}</button>
+      ${isStory() ? '' : `<button class="btn blue full" data-refill>${icon('bolt', 18)} Recharger +10 000 (bac à sable)</button>`}
+      <button class="btn full" data-faucet>${icon('chest', 18)} Coffre gratuit ${faucetLeft() ? `(${cdText(faucetLeft())})` : '— disponible !'}</button>
+      <button class="btn full" data-rake>${icon('refresh', 18)} Rakeback : ${fmt(S.rake)}</button>
     </div>`);
   $('[data-refill]', s.el)?.addEventListener('click', () => { refill(); sfx.cashout(); s.close(); });
   $('[data-faucet]', s.el).onclick = () => { s.close(); quickAction('faucet'); };
-  $('[data-rake]', s.el).onclick = () => { const r = claimRake(); if (r) { sfx.cashout(); toast(`Rakeback : +${fmt(r)}`, { icon: '♻️' }); } else sfx.error(); s.close(); };
+  $('[data-rake]', s.el).onclick = () => { const r = claimRake(); if (r) { sfx.cashout(); toast(`Rakeback : +${fmt(r)}`, { icon: icon('refresh') }); } else sfx.error(); s.close(); };
 }
 
 // ---------------- BONUS page ----------------
@@ -317,32 +325,32 @@ function renderBonus(page) {
         <div class="progress gold" style="margin:10px 0 6px"><i style="width:${Math.max(2, Math.min(100, prog))}%"></i></div>
         <div class="row" style="justify-content:space-between;font-size:11.5px" class="muted"><span class="muted">Misé : ${fmtShort(S.stats.wagered)}</span><span class="muted">${nxt ? `${nxt.name} à ${fmtShort(nxt.at)}` : 'Niveau max'}</span></div>
         <div class="spacer"></div>
-        <button class="btn full ${S.rake >= 0.01 ? 'green' : ''}" data-rake ${S.rake >= 0.01 ? '' : 'disabled'}>♻️ Récupérer le rakeback · ${fmt(S.rake)}</button>
+        <button class="btn full ${S.rake >= 0.01 ? 'green' : ''}" data-rake ${S.rake >= 0.01 ? '' : 'disabled'}>${icon('refresh', 18)} Récupérer le rakeback · ${fmt(S.rake)}</button>
       </div>
 
       <div class="grid2" style="margin-top:10px">
-        <button class="panel" data-daily style="text-align:left"><div style="font-size:26px">🎁</div><b style="display:block;margin-top:4px">Quotidien</b><small class="muted">${d.can ? `<span class="green">Disponible · ${fmt(d.amount)}</span>` : `Série : ${d.streak}/7`}</small></button>
-        <button class="panel" data-faucet style="text-align:left"><div style="font-size:26px">💰</div><b style="display:block;margin-top:4px">Coffre</b><small class="muted">${fl === 0 ? `<span class="green">Disponible · ${fmt(faucetAmount())}</span>` : `Dans ${cdText(fl)}`}</small></button>
+        <button class="panel" data-daily style="text-align:left">${badge('gift', '#ffd84d', '#f59e0b', 38)}<b style="display:block;margin-top:8px">Quotidien</b><small class="muted">${d.can ? `<span class="green">Disponible · ${fmt(d.amount)}</span>` : `Série : ${d.streak}/7`}</small></button>
+        <button class="panel" data-faucet style="text-align:left">${badge('chest', '#34d399', '#059669', 38)}<b style="display:block;margin-top:8px">Coffre</b><small class="muted">${fl === 0 ? `<span class="green">Disponible · ${fmt(faucetAmount())}</span>` : `Dans ${cdText(fl)}`}</small></button>
       </div>
 
-      <div class="sec"><div class="sec-head"><div class="h2">🎯 Missions du jour</div><span class="more">Renouvelées à minuit</span></div>
-        <div class="list">${S.missions.list.map((m, i) => `<div class="li ${m.claimed ? 'done' : ''}"><div class="ic">${m.claimed ? '✅' : m.done ? '🎉' : '🎯'}</div><div class="tx"><b>${missionText(m)}</b><div class="progress" style="margin-top:6px;height:6px"><i style="width:${(m.p / m.n) * 100}%"></i></div><small>${Math.floor(m.p)}/${m.n} · récompense ${fmt(m.reward)}</small></div>${m.done && !m.claimed ? `<button class="btn green sm" data-m="${i}">Réclamer</button>` : ''}</div>`).join('')}</div></div>
+      <div class="sec"><div class="sec-head"><div class="h2">${icon('target', 18)} Missions du jour</div><span class="more">Renouvelées à minuit</span></div>
+        <div class="list">${S.missions.list.map((m, i) => `<div class="li ${m.claimed ? 'done' : ''}"><div class="ic" style="color:${m.claimed || m.done ? 'var(--green)' : 'var(--txt2)'}">${icon(m.claimed ? 'check' : m.done ? 'sparkle' : 'target')}</div><div class="tx"><b>${missionText(m)}</b><div class="progress" style="margin-top:6px;height:6px"><i style="width:${(m.p / m.n) * 100}%"></i></div><small>${Math.floor(m.p)}/${m.n} · récompense ${fmt(m.reward)}</small></div>${m.done && !m.claimed ? `<button class="btn green sm" data-m="${i}">Réclamer</button>` : ''}</div>`).join('')}</div></div>
 
-      ${isStory() ? `<div class="sec"><div class="sec-head"><div class="h2">📖 Chapitres</div><span class="more">${S.chapter}/${CHAPTERS.length}</span></div>
+      ${isStory() ? `<div class="sec"><div class="sec-head"><div class="h2">${icon('book', 18)} Chapitres</div><span class="more">${S.chapter}/${CHAPTERS.length}</span></div>
         <div class="list">${CHAPTERS.map((c, i) => {
           const unlocks = GAMES.filter((g) => g.unlock > (i ? CHAPTERS[i - 1].goal : 100) && g.unlock <= c.goal).map((g) => g.name);
-          return `<div class="li ${i < S.chapter ? 'done' : ''}" style="${i === S.chapter ? 'outline:2px solid var(--green)' : ''}"><div class="ic">${i < S.chapter ? '✅' : i === S.chapter ? '▶️' : '🔒'}</div><div class="tx"><b>${i + 1}. ${c.title}</b><small>Objectif ${fmt(c.goal)} · +${fmt(c.reward)}${unlocks.length ? ` · débloque ${unlocks.join(', ')}` : ''}</small></div></div>`;
+          return `<div class="li ${i < S.chapter ? 'done' : ''}" style="${i === S.chapter ? 'outline:2px solid var(--green)' : ''}"><div class="ic" style="color:${i < S.chapter ? 'var(--green)' : i === S.chapter ? '#fff' : 'var(--txt3)'}">${icon(i < S.chapter ? 'check' : i === S.chapter ? 'arrow' : 'lock')}</div><div class="tx"><b>${i + 1}. ${c.title}</b><small>Objectif ${fmt(c.goal)} · +${fmt(c.reward)}${unlocks.length ? ` · débloque ${unlocks.join(', ')}` : ''}</small></div></div>`;
         }).join('')}</div></div>` : ''}
 
-      <div class="sec"><div class="sec-head"><div class="h2">🏅 Succès</div><span class="more">${Object.keys(S.ach).length}/${Object.keys(ACH).length}</span></div>
-        <div class="grid3">${Object.entries(ACH).map(([id, [n, d, ic]]) => `<div class="panel-2" style="text-align:center;padding:10px 6px;${S.ach[id] ? '' : 'opacity:.4;filter:grayscale(1)'}"><div style="font-size:24px">${ic}</div><div style="font-size:11px;font-weight:800;margin-top:4px">${n}</div><div style="font-size:9.5px;color:var(--txt2);margin-top:2px;font-weight:600">${d}</div></div>`).join('')}</div></div>`;
+      <div class="sec"><div class="sec-head"><div class="h2">${icon('medal', 18)} Succès</div><span class="more">${Object.keys(S.ach).length}/${Object.keys(ACH).length}</span></div>
+        <div class="grid3">${Object.entries(ACH).map(([id, [n, d, ic]]) => `<div class="panel-2" style="text-align:center;padding:10px 6px;${S.ach[id] ? '' : 'opacity:.4;filter:grayscale(1)'}"><div style="display:grid;place-items:center">${badge(ic, '#ffd84d', '#d97706', 36)}</div><div style="font-size:11px;font-weight:800;margin-top:4px">${n}</div><div style="font-size:9.5px;color:var(--txt2);margin-top:2px;font-weight:600">${d}</div></div>`).join('')}</div></div>`;
 
-    $('[data-rake]', page).onclick = () => { const r = claimRake(); if (r) { sfx.cashout(); confetti({ n: 50, coins: true, y: 0.3 }); toast(`Rakeback : +${fmt(r)}`, { icon: '♻️' }); draw(); } };
+    $('[data-rake]', page).onclick = () => { const r = claimRake(); if (r) { sfx.cashout(); confetti({ n: 50, coins: true, y: 0.3 }); toast(`Rakeback : +${fmt(r)}`, { icon: icon('refresh') }); draw(); } };
     $('[data-daily]', page).onclick = () => { sfx.click(); openDaily(draw); };
     $('[data-faucet]', page).onclick = () => { quickAction('faucet'); draw(); };
     $$('[data-m]', page).forEach((b) => (b.onclick = () => {
       const r = claimMission(+b.dataset.m);
-      if (r) { sfx.cashout(); confetti({ n: 70, coins: true, y: 0.5 }); toast(`Mission accomplie : +${fmt(r)}`, { icon: '🎯' }); draw(); }
+      if (r) { sfx.cashout(); confetti({ n: 70, coins: true, y: 0.5 }); toast(`Mission accomplie : +${fmt(r)}`, { icon: icon('target') }); draw(); }
     }));
   };
   draw();
@@ -356,7 +364,7 @@ function renderProfile(page) {
   const games = Object.entries(st.perGame).sort((a, b) => b[1].bets - a[1].bets);
   const sw = (k, label, sub) => `<div class="li" data-sw="${k}"><div class="tx"><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</div><div class="switch ${settings[k] ? 'on' : ''}"></div></div>`;
   page.innerHTML = `
-    <div class="row" style="gap:12px">${avatar(settings.name || 'Toi', 54)}<div class="grow"><div class="h1" style="margin:0">${esc(settings.name || 'Toi')}</div><div class="chip" style="color:${VIP[S.vip].color}">VIP ${VIP[S.vip].name}</div> <div class="chip">${isStory() ? 'Mode histoire' : 'Bac à sable'}</div></div><button class="btn sm" data-rename>✏️</button></div>
+    <div class="row" style="gap:12px">${avatar(settings.name || 'Toi', 54)}<div class="grow"><div class="h1" style="margin:0">${esc(settings.name || 'Toi')}</div><div class="chip" style="color:${VIP[S.vip].color}">VIP ${VIP[S.vip].name}</div> <div class="chip">${isStory() ? 'Mode histoire' : 'Bac à sable'}</div></div><button class="btn sm" data-rename aria-label="Renommer">${icon('edit', 16)}</button></div>
     <div class="stat-grid" style="margin-top:14px">
       <div class="stat"><small>Fortune</small><b>${money(netWorth())}</b></div>
       <div class="stat"><small>Total misé</small><b>${money(st.wagered)}</b></div>
@@ -367,18 +375,18 @@ function renderProfile(page) {
       <div class="stat"><small>Caisses ouvertes</small><b>${st.cases}</b></div>
       <div class="stat"><small>Boosters ouverts</small><b>${st.packs}</b></div>
     </div>
-    <div class="sec"><button class="btn full" data-lb>🏆 Classement</button></div>
+    <div class="sec"><button class="btn full" data-lb>${icon('trophy', 18)} Classement</button></div>
     ${games.length ? `<div class="sec"><div class="sec-head"><div class="h2">Par jeu</div></div><table class="table"><thead><tr><th>Jeu</th><th>Paris</th><th>Meilleur</th><th>Profit</th></tr></thead><tbody>${games.map(([id, g]) => `<tr><td>${gameName(id)}</td><td>${g.bets}</td><td>${fmtX(g.best)}</td><td class="${g.profit >= 0 ? 'green' : 'red'}">${fmt(g.profit)}</td></tr>`).join('')}</tbody></table></div>` : ''}
     <div class="sec"><div class="sec-head"><div class="h2">Réglages</div></div><div class="list">
       ${sw('sound', 'Effets sonores', 'Sur iPhone, désactive le mode silencieux')}
       ${sw('music', 'Musique lounge', 'Ambiance générée en temps réel')}
       ${sw('haptics', 'Vibrations', 'Retour haptique sur les actions')}
       ${sw('fast', 'Animations rapides', 'Accélère cartes, caisses et roues')}
-      <button class="li" data-fair style="text-align:left"><div class="ic">🛡️</div><div class="tx"><b>Équité prouvable</b><small>Seeds, hash SHA-256 et nonce</small></div></button>
-      <button class="li" data-mode style="text-align:left"><div class="ic">🔁</div><div class="tx"><b>Changer de mode</b><small>Histoire ↔ Bac à sable (sauvegardes séparées)</small></div></button>
-      <button class="li" data-reset style="text-align:left"><div class="ic">🗑️</div><div class="tx"><b class="red">Réinitialiser ce mode</b><small>Efface la progression de ${isStory() ? 'l’histoire' : 'du bac à sable'}</small></div></button>
+      <button class="li" data-fair style="text-align:left"><div class="ic">${icon('shield')}</div><div class="tx"><b>Équité prouvable</b><small>Seeds, hash SHA-256 et nonce</small></div></button>
+      <button class="li" data-mode style="text-align:left"><div class="ic">${icon('swap')}</div><div class="tx"><b>Changer de mode</b><small>Histoire / Bac à sable (sauvegardes séparées)</small></div></button>
+      <button class="li" data-reset style="text-align:left"><div class="ic red">${icon('trash')}</div><div class="tx"><b class="red">Réinitialiser ce mode</b><small>Efface la progression de ${isStory() ? 'l’histoire' : 'du bac à sable'}</small></div></button>
     </div></div>
-    <div class="center dim" style="font-size:11px;margin-top:20px;line-height:1.6">VAULT · jeu de simulation hors ligne<br>Aucun argent réel · jetons virtuels sans valeur<br>Joue pour le fun 🎲</div>`;
+    <div class="center dim" style="font-size:11px;margin-top:20px;line-height:1.6">VAULT · jeu de simulation hors ligne<br>Aucun argent réel · jetons virtuels sans valeur<br>Joue pour le fun</div>`;
   $$('[data-sw]', page).forEach((r) => (r.onclick = () => {
     const k = r.dataset.sw;
     settings[k] = !settings[k];
@@ -397,7 +405,7 @@ function renderProfile(page) {
   $('[data-reset]', page).onclick = async () => {
     if (await confirmSheet('Réinitialiser ?', 'Toute la progression de ce mode sera effacée (solde, inventaire, collection, succès).', 'Tout effacer', 'red')) {
       loadMode(S.mode, true);
-      toast('Progression réinitialisée', { icon: '🗑️' });
+      toast('Progression réinitialisée', { icon: icon('trash') });
       go('');
       route();
     }
@@ -405,7 +413,7 @@ function renderProfile(page) {
 }
 
 export function openFairness() {
-  const s = sheet(`<h3>🛡️ Équité prouvable</h3>
+  const s = sheet(`<h3>Équité prouvable</h3>
     <div class="muted" style="font-size:12px;line-height:1.5;margin-bottom:10px">Chaque résultat = HMAC-SHA256(seed serveur, « seed client:nonce:round »). Le hash du seed serveur est affiché avant de jouer ; change de seed pour révéler l’ancien et vérifier tous tes paris.</div>
     <div class="label">Seed serveur (hashé)</div><div class="panel-2 mono">${fair.hashed}</div>
     <div class="label" style="margin-top:10px">Seed client</div><div class="field"><div class="in"><input data-client value="${esc(S.fair.client)}"/></div></div>
@@ -417,7 +425,7 @@ export function openFairness() {
     fair.rotate(c || undefined);
     saveNow();
     s.close();
-    toast('Nouvelle paire de seeds active', { icon: '🛡️' });
+    toast('Nouvelle paire de seeds active', { icon: icon('shield') });
     setTimeout(openFairness, 250);
   };
 }
@@ -438,8 +446,8 @@ function renderSplash(fromProfile = false) {
     <div class="big-logo"><span class="dot"></span>VAULT</div>
     <div class="center muted" style="font-size:13px;margin-top:-6px">Casino · Skins · Cartes — 100 % virtuel</div>
     <div class="spacer"></div>
-    <button class="mode-card" data-m="story" style="border-color:#00e70155"><div class="mi">📖</div><div class="chip green" style="align-self:flex-start">RECOMMANDÉ</div><div class="mt">Mode histoire</div><div class="ms">Commence avec ${fmt(START.story)} jetons. Atteins des paliers de fortune pour débloquer de nouveaux jeux, les caisses CS et les boosters Pokémon. 15 chapitres jusqu’au milliard.</div><div class="save">${info('story')}</div></button>
-    <button class="mode-card" data-m="sandbox"><div class="mi">💎</div><div class="mt">Bac à sable</div><div class="ms">Tous les jeux débloqués, ${fmt(START.sandbox)} jetons de départ et recharge gratuite. Objectif : la plus grosse fortune possible.</div><div class="save">${info('sandbox')}</div></button>
+    <button class="mode-card" data-m="story" style="border-color:#00e70155"><div class="mi">${icon('book', 90)}</div><div class="chip green" style="align-self:flex-start">RECOMMANDÉ</div><div class="mt">Mode histoire</div><div class="ms">Commence avec ${fmt(START.story)} jetons. Atteins des paliers de fortune pour débloquer de nouveaux jeux, les caisses CS et les boosters Pokémon. 15 chapitres jusqu’au milliard.</div><div class="save">${info('story')}</div></button>
+    <button class="mode-card" data-m="sandbox"><div class="mi">${icon('gem', 90)}</div><div class="mt">Bac à sable</div><div class="ms">Tous les jeux débloqués, ${fmt(START.sandbox)} jetons de départ et recharge gratuite. Objectif : la plus grosse fortune possible.</div><div class="save">${info('sandbox')}</div></button>
     <div class="center dim" style="font-size:11px;margin-top:8px;line-height:1.6">Aucun argent réel. Les jetons n’ont aucune valeur et ne peuvent être ni achetés ni retirés.</div>
   </div>`;
   $$('[data-m]', view).forEach((b) => (b.onclick = () => {
@@ -452,15 +460,16 @@ function renderSplash(fromProfile = false) {
 }
 
 // ---------------- global event reactions ----------------
-bus.on('error', (msg) => { sfx.error(); toast(msg, { type: 'red', icon: '⚠️' }); });
+bus.on('migrated', (v) => toast(`Mise à jour V2 : ton ancien inventaire a été revendu`, { type: 'gold', icon: icon('refresh'), sub: `+${fmt(v)} crédités. Place aux vrais skins et aux vraies cartes !`, ms: 5000 }));
+bus.on('error', (msg) => { sfx.error(); toast(msg, { type: 'red', icon: icon('warn') }); });
 bus.on('bigwin', ({ payout, mult }) => setTimeout(() => bigWinOverlay(payout, mult), 350));
-bus.on('ach', ({ data, reward }) => { sfx.levelUp(); toast(`Succès : <b>${data[0]}</b>`, { type: 'gold', icon: data[2], sub: `${data[1]} · +${fmt(reward)}`, ms: 3800 }); });
-bus.on('mission', (m) => { sfx.shine(); toast(`Mission terminée !`, { type: 'blue', icon: '🎯', sub: `${missionText(m)} — réclame ta récompense dans Bonus` }); updateBadges(); });
+bus.on('ach', ({ data, reward }) => { sfx.levelUp(); toast(`Succès : <b>${data[0]}</b>`, { type: 'gold', icon: icon(data[2]), sub: `${data[1]} · +${fmt(reward)}`, ms: 3800 }); });
+bus.on('mission', (m) => { sfx.shine(); toast(`Mission terminée !`, { type: 'blue', icon: icon('target'), sub: `${missionText(m)} — réclame ta récompense dans Bonus` }); updateBadges(); });
 bus.on('vip', ({ tier, reward }) => {
   setTimeout(() => {
     sfx.levelUp();
     confetti({ n: 120, colors: [tier.color, '#fff', '#ffc800'] });
-    toast(`Nouveau niveau VIP : <b style="color:${tier.color}">${tier.name}</b>`, { type: 'gold', icon: '⭐', sub: `Bonus +${fmt(reward)} · rakeback ${(tier.rake * 100).toFixed(2)} %`, ms: 4000 });
+    toast(`Nouveau niveau VIP : <b style="color:${tier.color}">${tier.name}</b>`, { type: 'gold', icon: icon('star'), sub: `Bonus +${fmt(reward)} · rakeback ${(tier.rake * 100).toFixed(2)} %`, ms: 4000 });
   }, 600);
 });
 // Event modals are queued so they never stack on top of each other
@@ -485,7 +494,7 @@ bus.on('chapter', ({ ch, index }) => {
     sfx.levelUp();
     confetti({ n: 200, coins: true });
     const next = CHAPTERS[index];
-    sheet(`<div class="center"><div style="font-size:54px">🏆</div><div class="chip gold">CHAPITRE ${index} TERMINÉ</div><h3 style="margin:10px 0 6px;padding:0">${ch.title}</h3><div class="muted" style="font-size:13px">Récompense : <b class="green">+${fmt(ch.reward)}</b></div>${next ? `<div class="panel-2" style="margin-top:14px;text-align:left"><div class="dim" style="font-size:11px">CHAPITRE SUIVANT</div><b>${next.title}</b><div class="muted" style="font-size:12px">Atteins ${fmt(next.goal)} de fortune</div></div>` : '<div class="panel-2" style="margin-top:14px">👑 Tu as terminé l’histoire. Le Vault t’appartient !</div>'}</div>`, { center: true, onClose: () => setTimeout(pumpModals, 300) });
+    sheet(`<div class="center"><div style="display:grid;place-items:center;color:#ffc800">${icon('trophy', 56)}</div><div class="chip gold">CHAPITRE ${index} TERMINÉ</div><h3 style="margin:10px 0 6px;padding:0">${ch.title}</h3><div class="muted" style="font-size:13px">Récompense : <b class="green">+${fmt(ch.reward)}</b></div>${next ? `<div class="panel-2" style="margin-top:14px;text-align:left"><div class="dim" style="font-size:11px">CHAPITRE SUIVANT</div><b>${next.title}</b><div class="muted" style="font-size:12px">Atteins ${fmt(next.goal)} de fortune</div></div>` : `<div class="panel-2" style="margin-top:14px">${icon('crown', 18)} Tu as terminé l’histoire. Le Vault t’appartient !</div>`}</div>`, { center: true, onClose: () => setTimeout(pumpModals, 300) });
   }), 800);
 });
 

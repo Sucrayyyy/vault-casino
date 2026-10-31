@@ -127,7 +127,7 @@ export function mount(root) {
   const bet = betField('chicken');
   const diffSeg = segmented(Object.entries(DIFF).map(([v, d]) => ({ v, l: d.l })), diff, (v) => { diff = v; build(); }, 'sq');
   const diffW = el('<div><div class="label"><span>Difficulté</span><span class="dim" data-risk></span></div></div>'); diffW.append(diffSeg.el);
-  const row = el('<div class="ctl-row hidden"><button class="btn green lg" data-go>Avancer 🐔</button><button class="btn orange lg" data-cash>Encaisser</button></div>');
+  const row = el('<div class="ctl-row hidden"><button class="btn green lg" data-go>Avancer</button><button class="btn orange lg" data-cash>Encaisser</button></div>');
   const btn = el('<button class="btn green full lg">Parier</button>');
   controls.append(bet.el, diffW, row, btn);
   const goB = $('[data-go]', row), cashB = $('[data-cash]', row);

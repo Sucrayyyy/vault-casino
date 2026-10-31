@@ -26,7 +26,7 @@ export const START = { sandbox: 10000, story: 100 };
 
 function fresh(mode) {
   return {
-    v: 1, mode, created: Date.now(),
+    v: 2, mode, created: Date.now(),
     balance: START[mode], peak: START[mode],
     stats: { wagered: 0, bets: 0, wins: 0, profit: 0, bestWin: 0, bestMult: 0, refills: 0, cases: 0, packs: 0, perGame: {} },
     rake: 0, vip: 0,
@@ -57,6 +57,18 @@ export function loadMode(mode, reset = false) {
   const def = fresh(mode);
   for (const k in def) if (data[k] === undefined) data[k] = def[k];
   for (const k in def.stats) if (data.stats[k] === undefined) data.stats[k] = def.stats[k];
+  // v2: inventory moved to real CS skins / real TCG cards. Old procedural items are refunded.
+  if ((data.v || 1) < 2) {
+    const oldSkins = data.inv.skins.filter((x) => x.k == null);
+    const oldCards = data.inv.cards.filter((x) => (x.kind === 'card' && !x.lid) || (x.kind === 'sealed' && !x.v2));
+    const refund = round2([...oldSkins, ...oldCards].reduce((a, b) => a + (b.price || 0), 0));
+    data.inv.skins = data.inv.skins.filter((x) => x.k != null);
+    data.inv.cards = data.inv.cards.filter((x) => !oldCards.includes(x));
+    data.dex = {};
+    data.balance = round2(data.balance + refund);
+    data.v = 2;
+    if (refund > 0) setTimeout(() => bus.emit('migrated', refund), 1200);
+  }
   S = data;
   fair = new Fair(S.fair);
   settings.mode = mode;
@@ -335,28 +347,28 @@ export function claimMission(i) {
 
 // ---------- achievements ----------
 export const ACH = {
-  first_bet: ['Premier pari', 'Place ton tout premier pari', '🎲'],
-  bets_100: ['Régulier', '100 paris placés', '📈'],
-  bets_1000: ['Accro', '1 000 paris placés', '🔥'],
-  win_x10: ['×10 !', 'Gagne un pari à ×10 ou plus', '⚡'],
-  win_x100: ['×100 !!', 'Gagne un pari à ×100 ou plus', '💥'],
-  win_x1000: ['×1000 !!!', 'Gagne un pari à ×1 000 ou plus', '🌋'],
-  nw_10k: ['Cinq chiffres', 'Atteins 10 000 de fortune', '💵'],
-  nw_100k: ['Six chiffres', 'Atteins 100 000 de fortune', '💰'],
-  nw_1m: ['Millionnaire', 'Atteins 1 000 000 de fortune', '🏦'],
-  nw_100m: ['Magnat', 'Atteins 100 000 000 de fortune', '🛥️'],
-  nw_1b: ['Milliardaire', 'Atteins 1 000 000 000 de fortune', '👑'],
-  bj: ['Blackjack naturel', 'Reçois un blackjack d’entrée', '🃏'],
-  gold: ['Lame dorée', 'Obtiens un objet ★ rare dans une caisse', '🔪'],
-  covert: ['Couvert', 'Obtiens un objet Covert (rouge)', '🟥'],
-  sir: ['Illustration spéciale', 'Tire une carte SIR ou Hyper Rare', '✨'],
-  chicken: ['Le poulet a traversé', 'Atteins la dernière voie au Poulet Express', '🐔'],
-  battle: ['Gladiateur', 'Remporte une Case Battle', '⚔️'],
-  upgrade_low: ['Miracle', 'Réussis un upgrade à moins de 10 %', '🍀'],
-  jet_100: ['Pilote de légende', 'Encaisse à ×100 ou plus au Jet', '✈️'],
-  daily7: ['Fidèle', 'Récupère le 7e jour du bonus quotidien', '📅'],
-  psa10: ['Gemme parfaite', 'Obtiens une note PSA 10', '💎'],
-  mines_big: ['Démineur', 'Révèle 20 gemmes ou plus en une partie de Mines', '💣'],
+  first_bet: ['Premier pari', 'Place ton tout premier pari', 'dice'],
+  bets_100: ['Régulier', '100 paris placés', 'chart'],
+  bets_1000: ['Accro', '1 000 paris placés', 'flame'],
+  win_x10: ['×10 !', 'Gagne un pari à ×10 ou plus', 'bolt'],
+  win_x100: ['×100 !!', 'Gagne un pari à ×100 ou plus', 'sparkle'],
+  win_x1000: ['×1000 !!!', 'Gagne un pari à ×1 000 ou plus', 'flame'],
+  nw_10k: ['Cinq chiffres', 'Atteins 10 000 de fortune', 'coins'],
+  nw_100k: ['Six chiffres', 'Atteins 100 000 de fortune', 'coins'],
+  nw_1m: ['Millionnaire', 'Atteins 1 000 000 de fortune', 'chest'],
+  nw_100m: ['Magnat', 'Atteins 100 000 000 de fortune', 'gem'],
+  nw_1b: ['Milliardaire', 'Atteins 1 000 000 000 de fortune', 'crown'],
+  bj: ['Blackjack naturel', 'Reçois un blackjack d’entrée', 'spade'],
+  gold: ['Lame dorée', 'Obtiens un objet ★ rare dans une caisse', 'swords'],
+  covert: ['Couvert', 'Obtiens un objet Covert (rouge)', 'star'],
+  sir: ['Illustration spéciale', 'Tire une carte SIR ou Hyper Rare', 'sparkle'],
+  chicken: ['Le poulet a traversé', 'Atteins la dernière voie au Poulet Express', 'egg'],
+  battle: ['Gladiateur', 'Remporte une Case Battle', 'swords'],
+  upgrade_low: ['Miracle', 'Réussis un upgrade à moins de 10 %', 'percent'],
+  jet_100: ['Pilote de légende', 'Encaisse à ×100 ou plus au Jet', 'plane'],
+  daily7: ['Fidèle', 'Récupère le 7e jour du bonus quotidien', 'calendar'],
+  psa10: ['Gemme parfaite', 'Obtiens une note PSA 10', 'gem'],
+  mines_big: ['Démineur', 'Révèle 20 gemmes ou plus en une partie de Mines', 'bomb'],
 };
 export function ach(id, cond) {
   if (!S || !cond || S.ach[id]) return;

@@ -1,6 +1,6 @@
 // CS-style roll strip (horizontal or vertical) with tick sounds.
-import { SKINS, RAR, itemOdds } from './data.js';
-import { weaponSVG } from './art.js';
+import { ITEMS, RAR } from './data.js';
+import { skinImg } from './art.js';
 import { css, el, $ } from '../ui.js';
 import { settings } from '../store.js';
 import { sfx } from '../audio.js';
@@ -14,7 +14,8 @@ css('spinner', `
 .spin.v .cell { border-right: 0; border-bottom: 1px solid rgba(255,255,255,.04); }
 .spin .cell::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 50% 50%, var(--rc), transparent 65%); opacity: .25; }
 .spin .cell::after { content: ''; position: absolute; left: 10%; right: 10%; bottom: 0; height: 3px; background: var(--rc); }
-.spin .cell svg { width: 86%; height: 60%; position: relative; filter: drop-shadow(0 3px 4px rgba(0,0,0,.5)); }
+.spin .cell img { width: 84%; height: 66%; object-fit: contain; position: relative; filter: drop-shadow(0 3px 4px rgba(0,0,0,.5)); }
+.spin .cell .nm { position: relative; font-size: 9.5px; font-weight: 800; color: var(--txt2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 92%; }
 .spin .cell .q { position: relative; font-size: 34px; color: #ffd66b; font-weight: 900; text-shadow: 0 0 16px #e4ae39; }
 .spin .mark { position: absolute; z-index: 3; background: #ffc800; box-shadow: 0 0 12px #ffc800; pointer-events: none; }
 .spin.h .mark { top: 0; bottom: 0; left: 50%; width: 2px; margin-left: -1px; }
@@ -35,20 +36,23 @@ css('spinner', `
 @keyframes cellWin { to { filter: brightness(1.5); } }
 `);
 
-const cellHTML = (sid, size, hideGold) => {
-  const s = SKINS[sid];
+const cellHTML = (k, size, hideGold, showName) => {
+  const s = ITEMS[k];
   const gold = s.r === 4 && hideGold;
-  return `<div class="cell" style="--rc:${gold ? '#e4ae39' : RAR[s.r].color};${size}">${gold ? '<div class="q">★</div>' : weaponSVG(sid)}</div>`;
+  return `<div class="cell" style="--rc:${gold ? '#e4ae39' : RAR[s.r].color};${size}">${gold ? '<div class="q">★</div>' : skinImg(k)}${showName && !gold ? `<div class="nm">${s.n}</div>` : ''}</div>`;
 };
 
 // Sample a filler skin by case odds
+// Visual filler, slightly biased towards shiny items for the "near miss" feeling
 function filler(odds) {
   let x = Math.random();
+  if (x < 0.06) { const rare = odds.filter((o) => ITEMS[o.id].r >= 3); if (rare.length) return rare[Math.floor(Math.random() * rare.length)].id; }
+  x = Math.random();
   for (const o of odds) { x -= o.p; if (x < 0) return o.id; }
-  return odds[0].id;
+  return odds[odds.length - 1].id;
 }
 
-export function makeSpinner(container, { vertical = false, cell = 104, cross = 96 } = {}) {
+export function makeSpinner(container, { vertical = false, cell = 104, cross = 96, names = false } = {}) {
   const sp = el(`<div class="spin ${vertical ? 'v' : 'h'}"><div class="strip"></div><div class="fade l"></div><div class="fade r"></div><div class="mark"></div></div>`);
   if (vertical) sp.style.height = '100%'; else sp.style.height = cross + 'px';
   container.append(sp);
@@ -56,20 +60,20 @@ export function makeSpinner(container, { vertical = false, cell = 104, cross = 9
   const size = vertical ? `height:${cell}px;width:100%` : `width:${cell}px;height:100%`;
 
   function idle(caseDef) {
-    const odds = itemOdds(caseDef);
+    const odds = caseDef.odds;
     strip.style.transition = 'none';
     strip.style.transform = 'none';
-    strip.innerHTML = Array.from({ length: 12 }, () => cellHTML(filler(odds), size, true)).join('');
+    strip.innerHTML = Array.from({ length: 12 }, () => cellHTML(filler(odds), size, true, names)).join('');
     const span = vertical ? sp.clientHeight : sp.clientWidth;
     const off = -(cell * 6 - span / 2 + cell / 2);
     strip.style.transform = vertical ? `translateY(${off}px)` : `translateX(${off}px)`;
   }
 
   function spin(caseDef, winSid, { duration = 5200 } = {}) {
-    const odds = itemOdds(caseDef);
-    const N = 56, W = 48;
+    const odds = caseDef.odds;
+    const N = 46, W = 38;
     const ids = Array.from({ length: N }, (_, i) => (i === W ? winSid : filler(odds)));
-    strip.innerHTML = ids.map((id) => cellHTML(id, size, true)).join('');
+    strip.innerHTML = ids.map((id) => cellHTML(id, size, true, names)).join('');
     const span = vertical ? sp.clientHeight : sp.clientWidth;
     const jitter = (Math.random() - 0.5) * cell * 0.8;
     const target = -(W * cell - span / 2 + cell / 2 + jitter);
@@ -96,7 +100,7 @@ export function makeSpinner(container, { vertical = false, cell = 104, cross = 9
       strip.style.transform = vertical ? `translateY(${exact}px)` : `translateX(${exact}px)`;
       const winCell = strip.children[W];
       // reveal gold
-      winCell.outerHTML = cellHTML(winSid, size, false).replace('class="cell"', 'class="cell win"');
+      winCell.outerHTML = cellHTML(winSid, size, false, names).replace('class="cell"', 'class="cell win"');
       res();
     }, dur + 30));
   }

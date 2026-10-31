@@ -67,7 +67,7 @@ export function mount(root) {
   const bet = betField('keno');
   const riskSeg = segmented([{ v: 'low', l: 'Faible' }, { v: 'med', l: 'Moyen' }, { v: 'high', l: 'Élevé' }], risk, (v) => { risk = v; renderPay(); }, 'sq');
   const riskW = el('<div><div class="label">Risque</div></div>'); riskW.append(riskSeg.el);
-  const tools = el('<div class="ctl-row"><button class="btn sm" data-auto>🎲 Choix auto</button><button class="btn sm" data-clear>Effacer</button></div>');
+  const tools = el('<div class="ctl-row"><button class="btn sm" data-auto>Choix auto</button><button class="btn sm" data-clear>Effacer</button></div>');
   const autoF = autoField(); autoF.el.classList.add('hidden');
   const btn = el('<button class="btn green full lg">Parier</button>');
   controls.append(tabs.el, bet.el, riskW, tools, autoF.el, btn);

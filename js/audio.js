@@ -11,14 +11,35 @@ export function audioSettings(s) {
   if (settings.music) music.start(); else music.stop();
 }
 
+// iOS: by default WebAudio follows the ring/silent switch and only starts inside a
+// touch gesture. We ask for a "playback" audio session (Safari 16.4+), fall back to a
+// silent looping <audio> element on older iOS, and re-resume the context on every tap.
+let silentEl = null;
+function silentWavURL() {
+  const n = 4410, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+  const w = (o, str) => [...str].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, 44100, true); v.setUint32(28, 88200, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  w(36, 'data'); v.setUint32(40, n * 2, true);
+  return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+}
 export function unlockAudio() {
+  try { if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch (e) {}
+  if (!navigator.audioSession && !silentEl && /iP(hone|ad|od)/.test(navigator.userAgent)) {
+    silentEl = document.createElement('audio');
+    silentEl.setAttribute('playsinline', '');
+    silentEl.loop = true;
+    silentEl.src = silentWavURL();
+    silentEl.play().catch(() => {});
+  }
   if (!ctx) {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
-    ctx = new AC();
+    ctx = new AC({ latencyHint: 'interactive' });
     comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -14; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.15;
-    master = ctx.createGain(); master.gain.value = 0.8;
+    master = ctx.createGain(); master.gain.value = 0.85;
     sfxBus = ctx.createGain(); sfxBus.gain.value = settings.sound ? 0.9 : 0;
     musicBus = ctx.createGain(); musicBus.gain.value = 0;
     sfxBus.connect(comp); musicBus.connect(comp); comp.connect(master); master.connect(ctx.destination);
@@ -27,8 +48,14 @@ export function unlockAudio() {
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     audioSettings(settings);
   }
-  if (ctx.state === 'suspended') ctx.resume();
+  if (ctx.state !== 'running') {
+    ctx.resume().catch(() => {});
+    // classic iOS unlock: play one silent sample inside the gesture
+    const b = ctx.createBuffer(1, 1, 22050), src = ctx.createBufferSource();
+    src.buffer = b; src.connect(ctx.destination); src.start(0);
+  }
 }
+document.addEventListener('visibilitychange', () => { if (!document.hidden && ctx && ctx.state !== 'running') ctx.resume().catch(() => {}); });
 
 const now = () => ctx.currentTime;
 const ok = () => ctx && settings.sound && ctx.state === 'running';
