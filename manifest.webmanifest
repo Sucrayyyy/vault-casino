@@ -1,0 +1,17 @@
+{
+  "name": "VAULT — Casino virtuel",
+  "short_name": "VAULT",
+  "description": "Casino, skins CS et cartes Pokémon 100 % virtuels, hors ligne, contre des IA.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f212e",
+  "theme_color": "#1a2c38",
+  "lang": "fr",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

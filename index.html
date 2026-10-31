@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="VAULT">
+  <meta name="theme-color" content="#1a2c38">
+  <meta name="description" content="VAULT — casino, skins et cartes 100 % virtuels, hors ligne, contre des IA.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <title>VAULT</title>
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/games.css">
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5dff5e"/><stop offset="1" stop-color="#00b301"/></linearGradient>
+    </defs>
+  </svg>
+  <div id="app">
+    <header id="topbar"></header>
+    <main id="view"></main>
+    <nav id="tabbar" class="hidden-tabs"></nav>
+  </div>
+  <div id="overlay-root"></div>
+  <canvas id="fx"></canvas>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
