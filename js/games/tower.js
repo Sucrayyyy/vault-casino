@@ -1,4 +1,4 @@
-import { placeBet, settle, fair } from '../store.js';
+import { placeBet, settle, fair, luckRoll } from '../store.js';
 import { $, $$, el, css, gameLayout, betField, selectField, money, fmt, fmtX, resultPop, shake, haptic } from '../ui.js';
 import { pickDistinct } from '../rng.js';
 import { sfx } from '../audio.js';
@@ -98,6 +98,10 @@ export function mount(root) {
   function pickTile(r, c) {
     if (!game || r !== game.level) return;
     const t = $$('.ttile', rowEl(r))[c];
+    if (game.bad[r].includes(c) && luckRoll()) {
+      const free = Array.from({ length: DIFF[diff].cols }, (_, k) => k).filter((k) => !game.bad[r].includes(k));
+      if (free.length) game.bad[r] = game.bad[r].map((b) => (b === c ? free[0] : b));
+    }
     if (game.bad[r].includes(c)) {
       t.classList.add('bad'); t.innerHTML = SKULL;
       sfx.bomb(); shake(stage); haptic(true);

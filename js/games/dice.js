@@ -1,4 +1,4 @@
-import { placeBet, settle, fair, S } from '../store.js';
+import { placeBet, settle, fair, S, lucky } from '../store.js';
 import { $, el, css, gameLayout, betField, historyBar, modeTabs, autoField, fmt, fmtX, money, sleep, clamp } from '../ui.js';
 import { sfx } from '../audio.js';
 
@@ -78,8 +78,7 @@ export function mount(root) {
     const amount = bet.value;
     if (!placeBet('dice', amount)) return false;
     sfx.bet();
-    const [f] = fair.bet(1);
-    const r = Math.floor(f * 10001) / 100;
+    const r = lucky(() => Math.floor(fair.bet(1)[0] * 10001) / 100, (x) => (over ? x > target : x < target));
     const win = over ? r > target : r < target;
     res.classList.add('show');
     res.style.left = r + '%';

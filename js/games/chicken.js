@@ -1,4 +1,4 @@
-import { placeBet, settle, fair, ach } from '../store.js';
+import { placeBet, settle, fair, ach, luckRoll } from '../store.js';
 import { $, $$, el, css, gameLayout, betField, segmented, money, fmt, fmtX, sleep, resultPop, shake, haptic, confetti } from '../ui.js';
 import { sfx } from '../audio.js';
 
@@ -166,6 +166,7 @@ export function mount(root) {
     sfx.cluck(); haptic();
     setCam(next);
     await sleep(330);
+    if (next === game.death && luckRoll()) game.death = next + 1 + Math.floor(Math.random() * 6);
     if (next === game.death) {
       // a car comes and runs the chicken over
       game.deathLane = next;

@@ -1,13 +1,38 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <radialGradient id="bg" cx=".5" cy=".3" r=".9"><stop offset="0" stop-color="#1d3a4f"/><stop offset="1" stop-color="#0b1720"/></radialGradient>
-    <linearGradient id="c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7dff7e"/><stop offset="1" stop-color="#00a801"/></linearGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7c3aed"/><stop offset=".55" stop-color="#4f46e5"/><stop offset="1" stop-color="#06b6d4"/></linearGradient>
+    <radialGradient id="glow" cx=".5" cy=".46" r=".5"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff1a8"/><stop offset=".45" stop-color="#ffc83d"/><stop offset="1" stop-color="#e48a00"/></linearGradient>
+    <linearGradient id="gold2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd65c"/><stop offset="1" stop-color="#f2a100"/></linearGradient>
+    <linearGradient id="coin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7dff7e"/><stop offset="1" stop-color="#00b301"/></linearGradient>
   </defs>
   <rect width="512" height="512" fill="url(#bg)"/>
-  <circle cx="256" cy="256" r="190" fill="#00e701" opacity=".18"/>
-  <circle cx="256" cy="262" r="160" fill="#006b01"/>
-  <circle cx="256" cy="250" r="160" fill="url(#c)"/>
-  <circle cx="256" cy="250" r="124" fill="none" stroke="#007a01" stroke-width="14" opacity=".5"/>
-  <path d="M178 160h56l22 104 44-104h54l-82 186h-36z" fill="#013e01"/>
-  <ellipse cx="200" cy="170" rx="60" ry="26" fill="#fff" opacity=".25" transform="rotate(-25 200 170)"/>
+  <circle cx="256" cy="240" r="230" fill="url(#glow)"/>
+  <!-- flying coins -->
+  <g transform="rotate(-18 92 120)"><ellipse cx="92" cy="120" rx="34" ry="34" fill="#007a01"/><ellipse cx="92" cy="114" rx="34" ry="34" fill="url(#coin)"/><path d="M80 98h9l4 16 7-16h9l-13 30h-7z" fill="#013e01"/></g>
+  <g transform="rotate(20 428 104)"><ellipse cx="428" cy="104" rx="26" ry="26" fill="#007a01"/><ellipse cx="428" cy="99" rx="26" ry="26" fill="url(#coin)"/><path d="M419 87h7l3 12 5-12h7l-10 23h-5z" fill="#013e01"/></g>
+  <g transform="rotate(-10 438 404)"><ellipse cx="438" cy="404" rx="22" ry="22" fill="#007a01"/><ellipse cx="438" cy="400" rx="22" ry="22" fill="url(#coin)"/></g>
+  <!-- vault door body -->
+  <circle cx="256" cy="282" r="176" fill="#7a4300" opacity=".55"/>
+  <circle cx="256" cy="268" r="176" fill="url(#gold)"/>
+  <circle cx="256" cy="268" r="176" fill="none" stroke="#b86a00" stroke-width="10"/>
+  <circle cx="256" cy="268" r="138" fill="url(#gold2)" stroke="#c97c00" stroke-width="6"/>
+  <g fill="#b86a00">
+    <circle cx="256" cy="108" r="11"/><circle cx="256" cy="428" r="11"/><circle cx="96" cy="268" r="11"/><circle cx="416" cy="268" r="11"/>
+    <circle cx="143" cy="155" r="11"/><circle cx="369" cy="155" r="11"/><circle cx="143" cy="381" r="11"/><circle cx="369" cy="381" r="11"/>
+  </g>
+  <!-- face -->
+  <ellipse cx="206" cy="222" rx="30" ry="36" fill="#fff"/><ellipse cx="306" cy="222" rx="30" ry="36" fill="#fff"/>
+  <circle cx="214" cy="230" r="17" fill="#1b1033"/><circle cx="314" cy="230" r="17" fill="#1b1033"/>
+  <circle cx="221" cy="222" r="6" fill="#fff"/><circle cx="321" cy="222" r="6" fill="#fff"/>
+  <ellipse cx="166" cy="290" rx="20" ry="12" fill="#ff7a59" opacity=".55"/><ellipse cx="346" cy="290" rx="20" ry="12" fill="#ff7a59" opacity=".55"/>
+  <!-- wheel handle as nose -->
+  <g stroke="#8a4b00" stroke-width="12" stroke-linecap="round"><path d="M256 248v52M230 274h52"/></g>
+  <circle cx="256" cy="274" r="16" fill="#8a4b00"/><circle cx="256" cy="274" r="7" fill="#ffd65c"/>
+  <!-- big grin -->
+  <path d="M196 322c18 34 102 34 120 0" fill="#5b1d0a" stroke="#8a4b00" stroke-width="6" stroke-linejoin="round"/>
+  <path d="M226 338c12 10 48 10 60 0-8 14-52 14-60 0z" fill="#ff6b8b"/>
+  <!-- shine & sparkles -->
+  <path d="M150 170a150 150 0 0 1 70-62" stroke="#fff" stroke-width="14" stroke-linecap="round" fill="none" opacity=".55"/>
+  <g fill="#fff"><path d="M420 214l7 18 18 7-18 7-7 18-7-18-18-7 18-7z"/><path d="M78 362l5 13 13 5-13 5-5 13-5-13-13-5 13-5z" opacity=".9"/><path d="M380 44l4 10 10 4-10 4-4 10-4-10-10-4 10-4z" opacity=".8"/></g>
 </svg>

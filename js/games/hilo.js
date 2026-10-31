@@ -1,4 +1,4 @@
-import { placeBet, settle, fair } from '../store.js';
+import { placeBet, settle, fair, luckRoll } from '../store.js';
 import { $, el, css, gameLayout, betField, money, fmt, fmtX, sleep, resultPop, shake, haptic } from '../ui.js';
 import { sfx } from '../audio.js';
 
@@ -104,7 +104,9 @@ export function mount(root) {
     if (!game || game.busy) return;
     game.busy = true; refresh();
     const o = odds(cur.r)[dir];
-    const c = next();
+    const isOk = (c) => (dir === 'hi' ? (cur.r === 1 ? c.r > 1 : cur.r === 13 ? c.r === 13 : c.r >= cur.r) : (cur.r === 13 ? c.r < 13 : cur.r === 1 ? c.r === 1 : c.r <= cur.r));
+    let c = next();
+    if (!isOk(c) && luckRoll()) for (let k = 0; k < 20 && !isOk(c); k++) c = next();
     sfx.deal();
     await sleep(120);
     sfx.flip();

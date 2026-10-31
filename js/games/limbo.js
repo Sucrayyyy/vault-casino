@@ -1,4 +1,4 @@
-import { placeBet, settle, fair } from '../store.js';
+import { placeBet, settle, fair, lucky } from '../store.js';
 import { $, el, css, gameLayout, betField, historyBar, modeTabs, autoField, money, sleep, clamp, animateNumber } from '../ui.js';
 import { crashPoint } from '../rng.js';
 import { sfx } from '../audio.js';
@@ -43,7 +43,7 @@ export function mount(root) {
     const amount = bet.value;
     if (!placeBet('limbo', amount)) return false;
     sfx.bet();
-    const res = crashPoint(fair.bet(1)[0]);
+    const res = lucky(() => crashPoint(fair.bet(1)[0]), (x) => x >= target);
     const win = res >= target;
     num.className = 'limbo-num';
     box.classList.add('go');

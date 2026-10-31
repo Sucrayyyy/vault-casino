@@ -1,4 +1,4 @@
-import { S, placeBet, settle, fair, addItems, sellItems, track, ach, uid, canAfford, round2 } from '../store.js';
+import { S, placeBet, settle, fair, addItems, sellItems, track, ach, uid, canAfford, round2, lucky } from '../store.js';
 import { $, $$, el, css, money, fmt, confetti, haptic, segmented, toast, esc } from '../ui.js';
 import { sfx } from '../audio.js';
 import { icon } from '../icons.js';
@@ -97,7 +97,11 @@ function openView(root, c) {
     sfx.bet();
     resultsEl.innerHTML = '';
     const fl = fair.bet(qty * 4);
-    const items = Array.from({ length: qty }, (_, i) => ({ ...rollCase(c, fl[i * 4], fl[i * 4 + 1], fl[i * 4 + 2], fl[i * 4 + 3]), id: uid(), src: c.name }));
+    const items = Array.from({ length: qty }, (_, i) => {
+      let first = true;
+      const it = lucky(() => (first ? ((first = false), rollCase(c, fl[i * 4], fl[i * 4 + 1], fl[i * 4 + 2], fl[i * 4 + 3])) : rollCase(c, Math.random(), Math.random(), Math.random(), Math.random())), (x) => x.price >= c.price);
+      return { ...it, id: uid(), src: c.name };
+    });
     // preload the winning images so the reveal is instant
     items.forEach((it) => { const im = new Image(); im.src = imgURL(ITEMS[it.k].img, 256); });
     addItems('skins', items);

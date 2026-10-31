@@ -1,5 +1,5 @@
 // Save data, virtual economy, VIP, missions, achievements and story progression.
-import { Fair } from './rng.js';
+import { Fair, sha256Hex } from './rng.js';
 import { GAMES, CHAPTERS, VIP, gameById } from './catalog.js';
 
 const KEY = (m) => `vault.save.${m}`;
@@ -20,6 +20,22 @@ export const settings = Object.assign(
 export function saveSettings() { try { localStorage.setItem(SKEY, JSON.stringify(settings)); } catch (e) {} }
 
 function safeParse(s) { try { return JSON.parse(s) || {}; } catch (e) { return {}; } }
+
+// ---------- god mode (cheats, device-local, password protected) ----------
+const GOD_HASH = '4288f6a2dd1421ae5f952d20cd71f9477530b963889d1a8cd189d4f2973f9314';
+export const cheats = Object.assign({ on: false, luck: 0, god: 1, hits: 1, rare: 1, payout: 1, safeCrash: false }, settings.cheats || {});
+export const checkGodPassword = (pw) => sha256Hex('vault:' + pw) === GOD_HASH;
+export function saveCheats() { settings.cheats = { ...cheats }; saveSettings(); bus.emit('cheats'); }
+// % of losing outcomes that get re-rolled
+export const luckRoll = () => cheats.on && cheats.luck > 0 && Math.random() * 100 < cheats.luck;
+// Re-roll a generated outcome while it is a loss (only when god mode luck is on)
+export function lucky(gen, good, tries = 14) {
+  let r = gen();
+  if (!cheats.on || cheats.luck <= 0) return r;
+  for (let i = 0; i < tries && !good(r); i++) { if (Math.random() * 100 >= cheats.luck) break; r = gen(); }
+  return r;
+}
+export const cheatMul = (k) => (cheats.on ? cheats[k] || 1 : 1);
 
 // ---------- save ----------
 export const START = { sandbox: 10000, story: 100 };
@@ -166,6 +182,7 @@ export function placeBet(game, amount) {
 
 // payout = total amount returned (0 on loss). mult informational.
 export function settle(game, bet, payout, opts = {}) {
+  if (cheats.on && cheats.payout > 1 && payout > bet && !opts.noCredit) payout = bet + (payout - bet) * cheats.payout;
   payout = round2(payout);
   const mult = opts.mult ?? (bet > 0 ? payout / bet : 0);
   const profit = round2(payout - bet);

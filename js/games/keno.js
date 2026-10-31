@@ -1,4 +1,4 @@
-import { placeBet, settle, fair } from '../store.js';
+import { placeBet, settle, fair, lucky } from '../store.js';
 import { $, $$, el, css, gameLayout, betField, segmented, modeTabs, autoField, sleep, resultPop, fmtX } from '../ui.js';
 import { pickDistinct } from '../rng.js';
 import { sfx } from '../audio.js';
@@ -86,7 +86,7 @@ export function mount(root) {
     const amount = bet.value;
     if (!placeBet('keno', amount)) return false;
     sfx.bet(); pop.hide(); clearDraw();
-    const drawn = pickDistinct(fair.bet(10), 40, 10);
+    const drawn = lucky(() => pickDistinct(fair.bet(10), 40, 10), (d) => kenoTable(picks.size, risk)[d.filter((x) => picks.has(x)).length] > 1);
     const hits = drawn.filter((d) => picks.has(d)).length;
     let shown = 0;
     for (const d of drawn) {

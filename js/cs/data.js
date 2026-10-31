@@ -1,5 +1,5 @@
 // Real CS2 cases, skins and market prices (Steam images, Skinport EUR prices), loaded once.
-import { round2 } from '../store.js';
+import { round2, cheatMul } from '../store.js';
 
 const DB = await fetch(new URL('../../data/cs.json', import.meta.url)).then((r) => r.json());
 
@@ -54,8 +54,16 @@ export const caseById = Object.fromEntries(CASES.map((c) => [c.id, c]));
 
 // One item from a case using 4 fair floats
 export function rollCase(c, f1, f2, f3, f4) {
-  let x = f1, pick = c.odds[c.odds.length - 1];
-  for (const o of c.odds) { x -= o.p; if (x < 0) { pick = o; break; } }
+  const boost = cheatMul('rare');
+  let odds = c.odds;
+  if (boost > 1) {
+    // god mode: covert and gold items become `boost` times more likely
+    const w = c.odds.map((o) => o.p * (ITEMS[o.id].r >= 3 ? boost : 1));
+    const t = w.reduce((a, b) => a + b, 0);
+    odds = c.odds.map((o, i) => ({ id: o.id, p: w[i] / t }));
+  }
+  let x = f1, pick = odds[odds.length - 1];
+  for (const o of odds) { x -= o.p; if (x < 0) { pick = o; break; } }
   return makeItem(pick.id, f2, f3 < ST_P, f4);
 }
 export function makeItem(itemId, fw, st, ff = Math.random()) {

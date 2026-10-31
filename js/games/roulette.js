@@ -1,4 +1,4 @@
-import { placeBet, settle, fair, S, round2 } from '../store.js';
+import { placeBet, settle, fair, S, round2, lucky } from '../store.js';
 import { $, $$, el, css, gameLayout, money, fmt, fmtShort, sleep, fitCanvas, haptic, COIN } from '../ui.js';
 import { sfx } from '../audio.js';
 
@@ -200,7 +200,7 @@ export function mount(root) {
     document.querySelector('#view').scrollTo({ top: 0, behavior: 'smooth' });
     cells.forEach((x) => x.classList.remove('win'));
     sfx.bet();
-    const result = Math.floor(fair.bet(1)[0] * 37);
+    const result = lucky(() => Math.floor(fair.bet(1)[0] * 37), (n) => Object.entries(bets).reduce((a, [k, v]) => a + v * wins(k, n), 0) > tb);
     await spinWheel(result);
     let payout = 0;
     for (const [k, v] of Object.entries(bets)) payout += v * wins(k, result);

@@ -1,4 +1,4 @@
-import { placeBet, settle, fair } from '../store.js';
+import { placeBet, settle, fair, lucky } from '../store.js';
 import { $, $$, el, css, gameLayout, betField, modeTabs, autoField, sleep, money, fmtX, confetti, haptic } from '../ui.js';
 import { weighted } from '../rng.js';
 import { sfx } from '../audio.js';
@@ -55,8 +55,8 @@ export function mount(root) {
     sfx.bet();
     svg.innerHTML = '';
     $$('.slot-cell.hit', box).forEach((c) => c.classList.remove('hit'));
-    const fl = fair.bet(9);
-    grid = [0, 1, 2].map((c) => [0, 1, 2].map((r) => SYMS.indexOf(weighted(SYMS, fl[c * 3 + r]))));
+    grid = lucky(() => { const fl = fair.bet(9); return [0, 1, 2].map((c) => [0, 1, 2].map((r) => SYMS.indexOf(weighted(SYMS, fl[c * 3 + r])))); },
+      (g) => LINES.some((line) => { const ids = line.map(([c, r]) => g[c][r]); return ids[0] === ids[1] && ids[1] === ids[2]; }));
     const fast = auto;
     await Promise.all(reels.map(async (strip, c) => {
       const n = (fast ? 10 : 16) + c * (fast ? 4 : 7);

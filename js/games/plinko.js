@@ -1,4 +1,4 @@
-import { placeBet, settle, fair, S } from '../store.js';
+import { placeBet, settle, fair, S, lucky } from '../store.js';
 import { $, el, css, gameLayout, betField, selectField, segmented, historyBar, modeTabs, autoField, sleep, fitCanvas, haptic } from '../ui.js';
 import { sfx } from '../audio.js';
 
@@ -155,8 +155,7 @@ export function mount(root) {
     if (!placeBet('plinko', amount)) return false;
     sfx.bet();
     lockable(true);
-    const fl = fair.bet(rows);
-    const path = fl.slice(0, rows).map((f) => (f < 0.5 ? 0 : 1));
+    const path = lucky(() => fair.bet(rows).map((f) => (f < 0.5 ? 0 : 1)), (pth) => TABLES[rows][risk][pth.reduce((a, b) => a + b, 0)] > 1);
     const k = path.reduce((a, b) => a + b, 0);
     const r = rows, rk = risk;
     const m = TABLES[r][rk][k];

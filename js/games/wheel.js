@@ -1,4 +1,4 @@
-import { placeBet, settle, fair } from '../store.js';
+import { placeBet, settle, fair, lucky } from '../store.js';
 import { $, el, css, gameLayout, betField, segmented, selectField, modeTabs, autoField, sleep, fitCanvas, resultPop, fmtX, haptic } from '../ui.js';
 import { sfx } from '../audio.js';
 
@@ -73,7 +73,7 @@ export function mount(root) {
     if (!placeBet('wheel', amount)) return false;
     sfx.bet(); pop.hide(); center.textContent = '';
     const n = table.length, seg = (Math.PI * 2) / n;
-    const idx = Math.floor(fair.bet(1)[0] * n);
+    const idx = lucky(() => Math.floor(fair.bet(1)[0] * n), (i) => table[i] > 1);
     const m = table[idx];
     const jitter = (Math.random() - 0.5) * seg * 0.7;
     let target = -Math.PI / 2 - (idx + 0.5) * seg + jitter;

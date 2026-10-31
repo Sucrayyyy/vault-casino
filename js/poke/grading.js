@@ -1,4 +1,4 @@
-import { S, placeBet, settle, fair, ach, round2, save, bus } from '../store.js';
+import { S, placeBet, settle, fair, ach, round2, save, bus, lucky } from '../store.js';
 import { $, $$, css, money, fmt, sleep, confetti, haptic, esc } from '../ui.js';
 import { sfx } from '../audio.js';
 import { icon } from '../icons.js';
@@ -66,7 +66,8 @@ export async function mount(root, { args }) {
       $('[data-go]', root).disabled = true;
       $('[data-slab]', root).insertAdjacentHTML('beforeend', '<div class="scan"></div>');
       const before = sel.price;
-      const gr = weighted(GRADES, fair.bet(1)[0]);
+      let firstG = true;
+      const gr = weighted(GRADES, lucky(() => (firstG ? ((firstG = false), fair.bet(1)[0]) : Math.random()), (f) => weighted(GRADES, f).g >= 9));
       sel.grade = gr.g;
       sel.price = round2(sel.price * gradeMul(gr.g, card));
       save(); bus.emit('inv', 'cards');

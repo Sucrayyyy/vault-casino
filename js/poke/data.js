@@ -1,5 +1,5 @@
 // Real French TCG expansions (TCGdex images, Cardmarket EUR prices) with era-specific pull rates.
-import { round2 } from '../store.js';
+import { round2, cheatMul } from '../store.js';
 
 export const INDEX = await fetch(new URL('../../data/poke/index.json', import.meta.url)).then((r) => r.json());
 export const setMeta = Object.fromEntries(INDEX.map((s) => [s.id, s]));
@@ -63,21 +63,22 @@ const take = (set, tier, f, fb = ['R', 'U', 'C']) => pickFrom(pool(set, tier, fb
 // One booster; `next` returns uniform floats. Rarest cards come last, like in a real pack.
 export const GOD_P = 1 / 2000;
 export function openBooster(set, next) {
-  if (next() < GOD_P) return godPack(set, next);
+  const H = cheatMul('hits');
+  if (next() < Math.min(1, GOD_P * cheatMul('god'))) return godPack(set, next);
   const out = [];
   const e = set.era;
   if (e === 'wotc') {
     const first = next() < 0.08;
     for (let i = 0; i < 7; i++) out.push({ c: take(set, 'C', next()) });
     for (let i = 0; i < 3; i++) out.push({ c: take(set, 'U', next()) });
-    out.push({ c: take(set, next() < 1 / 3 ? 'H' : 'R', next(), ['H', 'R']) });
+    out.push({ c: take(set, next() < Math.min(1, H / 3) ? 'H' : 'R', next(), ['H', 'R']) });
     if (first) out.forEach((x) => (x.first = true));
     return out;
   }
   if (e === 'cel') {
     for (let i = 0; i < 3; i++) out.push({ c: take(set, 'R', next()) });
     const z = next();
-    out.push({ c: take(set, z < 0.1 ? 'UR' : z < 0.5 ? 'RR' : 'R', next(), ['RR', 'R']) });
+    out.push({ c: take(set, z < 0.1 * H ? 'UR' : z < 0.5 * H ? 'RR' : 'R', next(), ['RR', 'R']) });
     return out;
   }
   const nC = e === 'xy' ? 6 : e === 'sv' ? 4 : 5;
@@ -86,13 +87,13 @@ export function openBooster(set, next) {
   const rev = () => { const x = next(); return { c: take(set, x < 0.55 ? 'C' : x < 0.9 ? 'U' : 'R', next()), rev: true }; };
   if (e !== 'xy') out.push(rev());
   if (e === 'sv') {
-    const y = next();
+    const y = next() / H;
     if (y < 1 / 86 && set.byTier.SIR) out.push({ c: take(set, 'SIR', next()) });
     else if (y < 1 / 86 + 1 / 12 && set.byTier.IR) out.push({ c: take(set, 'IR', next()) });
     else if (set.byTier.SH && y < 0.35) out.push({ c: take(set, 'SH', next()) });
     else out.push(rev());
   } else if (e === 'xy') out.push(rev());
-  const z = next();
+  const z = next() / H;
   let r;
   if (e === 'sv') r = z < 1 / 120 ? 'HR' : z < 1 / 120 + 1 / 15 ? 'UR' : z < 1 / 120 + 1 / 15 + 1 / 5 ? 'RR' : 'R';
   else if (e === 'swsh') r = z < 1 / 45 ? 'HR' : z < 1 / 45 + 1 / 18 ? 'UR' : z < 1 / 45 + 1 / 18 + 1 / 4.5 ? 'RR' : 'R';

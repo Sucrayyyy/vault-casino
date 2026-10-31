@@ -1,4 +1,4 @@
-import { placeBet, settle, fair, ach, canAfford, S } from '../store.js';
+import { placeBet, settle, fair, ach, canAfford, S, luckRoll } from '../store.js';
 import { $, el, css, gameLayout, betField, sleep, money, fmt, shake, haptic, confetti } from '../ui.js';
 import { sfx } from '../audio.js';
 import { cardHTML } from './hilo.js';
@@ -122,7 +122,16 @@ export function mount(root) {
     G.over = true; G.busy = true;
     render(true); sfx.flip(); await sleep(450);
     const live = G.hands.some((h) => total(h.cards).t <= 21);
-    while (live && total(G.dealer).t < 17) { deal(G.dealer); render(true); await sleep(480); }
+    const best = Math.max(0, ...G.hands.map((h) => total(h.cards).t).filter((t) => t <= 21));
+    while (live && total(G.dealer).t < 17) {
+      // god mode: the dealer tends to draw the card that makes him lose
+      if (luckRoll()) {
+        let c;
+        for (let k = 0; k < 10; k++) { c = draw(); const t = total([...G.dealer, c]).t; if (t > 21 || (t >= 17 && t < best)) break; }
+        c._new = true; G.dealer.push(c); sfx.deal();
+      } else deal(G.dealer);
+      render(true); await sleep(480);
+    }
     const d = total(G.dealer).t;
     for (const h of G.hands) {
       const t = total(h.cards).t;
@@ -155,7 +164,9 @@ export function mount(root) {
     if (!a || !G || G.over || G.busy) return;
     const h = G.hands[G.active];
     if (a === 'hit') {
-      G.busy = true; deal(h.cards); render(); await sleep(260); G.busy = false;
+      G.busy = true;
+      if (luckRoll()) { let c; for (let k = 0; k < 10; k++) { c = draw(); if (total([...h.cards, c]).t <= 21) break; } c._new = true; h.cards.push(c); sfx.deal(); } else deal(h.cards);
+      render(); await sleep(260); G.busy = false;
       const t = total(h.cards).t;
       if (t > 21) { sfx.lose(); shake(table); render(); await sleep(300); await next(); }
       else if (t === 21) { await next(); }

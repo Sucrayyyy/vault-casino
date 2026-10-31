@@ -1,4 +1,4 @@
-import { S, settings, placeBet, settle, fair, addItems, track, ach, uid, round2 } from '../store.js';
+import { S, settings, placeBet, settle, fair, addItems, track, ach, uid, round2, lucky } from '../store.js';
 import { $, $$, el, css, money, fmt, sleep, confetti, haptic, segmented, esc } from '../ui.js';
 import { sfx } from '../audio.js';
 import { CASES, ITEMS, RAR, rollCase } from './data.js';
@@ -110,19 +110,24 @@ export function mount(root) {
     }
     await sleep(400);
     // Everything is decided and paid up-front so leaving mid-animation never loses anything.
-    const fl = fair.bet(rounds.length * players.length * 4 + 1);
-    const allRes = rounds.map((c, r) => players.map((p, i) => { const k = (r * players.length + i) * 4; return { ...rollCase(c, fl[k], fl[k + 1], fl[k + 2], fl[k + 3]), id: uid(), src: 'Battle' }; }));
-    const finalTot = players.map((_, i) => round2(allRes.reduce((a, row) => a + row[i].price, 0)));
-    let winners;
-    if (M.teams) {
-      const A = finalTot[0] + finalTot[1], B = finalTot[2] + finalTot[3];
-      const aWins = A === B ? fl[fl.length - 1] < 0.5 : crazy ? A < B : A > B;
-      winners = aWins ? [0, 1] : [2, 3];
-    } else {
-      const target = crazy ? Math.min(...finalTot) : Math.max(...finalTot);
-      const tied = finalTot.map((v, i) => (v === target ? i : -1)).filter((i) => i >= 0);
-      winners = [tied[Math.floor(fl[fl.length - 1] * tied.length)]];
-    }
+    const N = rounds.length * players.length * 4 + 1;
+    const simulate = (fl) => {
+      const allRes = rounds.map((c, r) => players.map((p, i) => { const k = (r * players.length + i) * 4; return { ...rollCase(c, fl[k], fl[k + 1], fl[k + 2], fl[k + 3]), id: uid(), src: 'Battle' }; }));
+      const finalTot = players.map((_, i) => round2(allRes.reduce((a, row) => a + row[i].price, 0)));
+      let winners;
+      if (M.teams) {
+        const A = finalTot[0] + finalTot[1], B = finalTot[2] + finalTot[3];
+        const aWins = A === B ? fl[fl.length - 1] < 0.5 : crazy ? A < B : A > B;
+        winners = aWins ? [0, 1] : [2, 3];
+      } else {
+        const target = crazy ? Math.min(...finalTot) : Math.max(...finalTot);
+        const tied = finalTot.map((v, i) => (v === target ? i : -1)).filter((i) => i >= 0);
+        winners = [tied[Math.floor(fl[fl.length - 1] * tied.length)]];
+      }
+      return { allRes, winners };
+    };
+    let first = true;
+    const { allRes, winners } = lucky(() => simulate(first ? ((first = false), fair.bet(N)) : Array.from({ length: N }, Math.random)), (r) => r.winners.includes(0));
     const pot = allRes.flat().sort((a, b) => b.price - a.price);
     let mine = [];
     if (winners.includes(0)) mine = M.teams ? pot.filter((_, i) => i % 2 === 0) : pot; // 2v2: pot split with the teammate

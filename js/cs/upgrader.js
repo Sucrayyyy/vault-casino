@@ -1,4 +1,4 @@
-import { S, placeBet, settle, fair, addItems, removeItems, ach, uid, round2 } from '../store.js';
+import { S, placeBet, settle, fair, addItems, removeItems, ach, uid, round2, lucky } from '../store.js';
 import { $, $$, el, css, money, fmt, sleep, confetti, haptic, shake, segmented, COIN, esc } from '../ui.js';
 import { sfx } from '../audio.js';
 import { icon } from '../icons.js';
@@ -200,8 +200,10 @@ export function mount(root) {
     removeItems('skins', items.map((i) => i.id));
     sel.clear();
     sfx.bet();
-    const f = fair.bet(1)[0];
-    const win = mode === 'under' ? f < c : f > 1 - c;
+    const winF = (x) => (mode === 'under' ? x < c : x > 1 - c);
+    let firstF = true;
+    const f = lucky(() => (firstF ? ((firstF = false), fair.bet(1)[0]) : Math.random()), winF);
+    const win = winF(f);
     // needle: several turns, then a slow crawl to the result (suspense near the edge)
     const land = f * 360;
     const from = rot, to = rot - (rot % 360) + 360 * 6 + land;

@@ -1,4 +1,4 @@
-import { placeBet, settle, fair, ach } from '../store.js';
+import { placeBet, settle, fair, ach, luckRoll } from '../store.js';
 import { $, $$, el, css, gameLayout, betField, selectField, money, fmtX, sleep, resultPop, shake, haptic } from '../ui.js';
 import { pickDistinct } from '../rng.js';
 import { sfx } from '../audio.js';
@@ -105,6 +105,11 @@ export function mount(root) {
     const t = tiles[i];
     t.classList.remove('live');
     t.classList.add('rev');
+    // god mode: the mine quietly moves to another hidden tile
+    if (game.mines.has(i) && luckRoll()) {
+      const free = tiles.map((_, k) => k).filter((k) => k !== i && !game.mines.has(k) && !game.revealed.includes(k));
+      if (free.length) { game.mines.delete(i); game.mines.add(free[Math.floor(Math.random() * free.length)]); }
+    }
     if (game.mines.has(i)) {
       t.innerHTML = BOMB_SVG;
       sfx.bomb(); haptic(true);

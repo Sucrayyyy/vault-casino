@@ -1,4 +1,4 @@
-import { S, placeBet, settle, fair, addItems, removeItems, sellItems, track, ach, uid, round2, save, isStory, netWorth, canAfford } from '../store.js';
+import { S, placeBet, settle, fair, addItems, removeItems, sellItems, track, ach, uid, round2, save, isStory, netWorth, canAfford, lucky } from '../store.js';
 import { $, $$, el, css, money, fmt, sleep, confetti, haptic, toast, esc, fmtShort, COIN } from '../ui.js';
 import { sfx } from '../audio.js';
 import { icon } from '../icons.js';
@@ -153,7 +153,8 @@ const preloadAll = (urls) => Promise.all(urls.map((u) => new Promise((res) => { 
 
 export function openSession(set, nPacks, { cost = 0, game = 'boosters', onDone, again } = {}) {
   const next = stream(fair.bet(nPacks * 24 + 2));
-  const packs = Array.from({ length: nPacks }, () => openBooster(set, next));
+  // god mode luck: re-roll packs without a big hit (re-rolls use fresh randomness)
+  const packs = Array.from({ length: nPacks }, () => { let f = true; return lucky(() => openBooster(set, f ? ((f = false), next) : Math.random), (p) => p.some((e) => lvlOf(e.c) >= 3)); });
   // Everything goes to the collection immediately: closing the app never loses a card
   const all = [];
   packs.forEach((p) => p.forEach((e) => {

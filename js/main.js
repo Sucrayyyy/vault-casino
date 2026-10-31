@@ -1,7 +1,7 @@
 import {
   S, settings, saveSettings, bus, loadMode, hasSave, peekSave, netWorth, invValue, isStory, isUnlocked,
   dailyState, claimDaily, faucetLeft, faucetAmount, claimFaucet, claimRake, refill, ensureMissions, missionText,
-  claimMission, ACH, fair, saveNow, START,
+  claimMission, ACH, fair, saveNow, START, cheats, saveCheats, checkGodPassword, credit,
 } from './store.js';
 import { GAMES, CHAPTERS, VIP, gameById } from './catalog.js';
 import { $, $$, el, fmt, fmtShort, fmtX, money, COIN, toast, sheet, confirmSheet, haptic, confetti, bigWinOverlay, countUp, esc } from './ui.js';
@@ -28,6 +28,9 @@ const unlock = () => { unlockAudio(); audioSettings(settings); };
 ['pointerdown', 'touchend', 'click', 'keydown'].forEach((ev) => window.addEventListener(ev, unlock, { capture: true, passive: true }));
 document.addEventListener('click', (e) => { if (e.target.closest('button')) haptic(); }, { capture: true });
 
+// Small version of the app mascot (smiling vault door)
+const LOGO_MARK = `<svg class="logo-mark" viewBox="0 0 64 64" width="30" height="30"><defs><linearGradient id="lmg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff1a8"/><stop offset=".5" stop-color="#ffc83d"/><stop offset="1" stop-color="#e48a00"/></linearGradient></defs><circle cx="32" cy="34" r="28" fill="#7a4300" opacity=".5"/><circle cx="32" cy="32" r="28" fill="url(#lmg)" stroke="#b86a00" stroke-width="2.5"/><circle cx="32" cy="32" r="21" fill="none" stroke="#c97c00" stroke-width="1.5"/><ellipse cx="25" cy="26" rx="5" ry="6" fill="#fff"/><ellipse cx="39" cy="26" rx="5" ry="6" fill="#fff"/><circle cx="26" cy="27.5" r="2.8" fill="#1b1033"/><circle cx="40" cy="27.5" r="2.8" fill="#1b1033"/><path d="M32 30v8M28 34h8" stroke="#8a4b00" stroke-width="2.4" stroke-linecap="round"/><path d="M23 41c3 6 15 6 18 0" fill="#5b1d0a" stroke="#8a4b00" stroke-width="1.5"/></svg>`;
+
 // ---------------- topbar ----------------
 let shownBalance = 0;
 function renderTop(route) {
@@ -35,11 +38,12 @@ function renderTop(route) {
   const id = route.slice(2).split('/')[0];
   topbar.innerHTML = `
     ${inGame ? `<button class="back-btn" data-back aria-label="Retour"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M15 4l-8 8 8 8" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="top-title">${esc(gameById[id]?.name || '')}</div>`
-      : `<div class="logo"><span class="dot"></span>VAULT</div>`}
+      : `<div class="logo">${LOGO_MARK}VAULT</div>`}${cheats.on ? '<span class="god-chip" data-godchip>GOD</span>' : ''}
     <div class="wallet"><button class="bal" data-wallet>${COIN}<span data-bal>${fmt(S.balance)}</span></button><button class="wbtn" data-wallet aria-label="Portefeuille"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h13v3H5" fill="none" stroke="#fff" stroke-width="2.2"/><rect x="3" y="7" width="18" height="13" rx="2" fill="none" stroke="#fff" stroke-width="2.2"/><circle cx="16.5" cy="13.5" r="1.6" fill="#fff"/></svg></button></div>
     ${inGame ? '' : `<button class="icon-btn" data-go="profil" aria-label="Profil"><svg width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>`}`;
   shownBalance = S.balance;
   $('[data-back]', topbar)?.addEventListener('click', () => { sfx.click(); goBack(); });
+  $('[data-godchip]', topbar)?.addEventListener('click', () => { sfx.click(); openGodMode(); });
   $$('[data-wallet]', topbar).forEach((b) => (b.onclick = () => { sfx.click(); openWallet(); }));
   $('[data-go]', topbar)?.addEventListener('click', () => { sfx.tab(); go('profil'); });
 }
@@ -383,6 +387,7 @@ function renderProfile(page) {
       ${sw('haptics', 'Vibrations', 'Retour haptique sur les actions')}
       ${sw('fast', 'Animations rapides', 'Accélère cartes, caisses et roues')}
       <button class="li" data-fair style="text-align:left"><div class="ic">${icon('shield')}</div><div class="tx"><b>Équité prouvable</b><small>Seeds, hash SHA-256 et nonce</small></div></button>
+      <button class="li" data-god style="text-align:left"><div class="ic" style="color:#ffc800">${icon('crown')}</div><div class="tx"><b>God mode ${cheats.on ? '<span class="god-chip">ACTIF</span>' : ''}</b><small>Accès protégé par mot de passe</small></div>${icon('lock', 16)}</button>
       <button class="li" data-mode style="text-align:left"><div class="ic">${icon('swap')}</div><div class="tx"><b>Changer de mode</b><small>Histoire / Bac à sable (sauvegardes séparées)</small></div></button>
       <button class="li" data-reset style="text-align:left"><div class="ic red">${icon('trash')}</div><div class="tx"><b class="red">Réinitialiser ce mode</b><small>Efface la progression de ${isStory() ? 'l’histoire' : 'du bac à sable'}</small></div></button>
     </div></div>
@@ -397,6 +402,7 @@ function renderProfile(page) {
   }));
   $('[data-lb]', page).onclick = () => { sfx.click(); openLeaderboard(); };
   $('[data-fair]', page).onclick = () => { sfx.click(); openFairness(); };
+  $('[data-god]', page).onclick = () => { sfx.click(); openGodMode(); };
   $('[data-rename]', page).onclick = () => {
     const n = prompt('Ton pseudo', settings.name || 'Toi');
     if (n && n.trim()) { settings.name = n.trim().slice(0, 16); saveSettings(); route(); }
@@ -409,6 +415,80 @@ function renderProfile(page) {
       go('');
       route();
     }
+  };
+}
+
+// ---------------- GOD MODE ----------------
+function openGodMode() {
+  if (settings.godKey) return godPanel();
+  const s = sheet(`<h3>${icon('crown', 20)} God mode</h3>
+    <div class="muted" style="font-size:12.5px;margin-bottom:12px">Zone réservée. Entre le mot de passe pour accéder aux triches.</div>
+    <div class="field"><div class="in">${icon('key', 16)}<input type="password" data-pw placeholder="Mot de passe" autocomplete="off" autocapitalize="off"></div></div>
+    <div class="spacer"></div><button class="btn gold full lg" data-ok>Déverrouiller</button>`, { center: true });
+  const inp = $('[data-pw]', s.el);
+  setTimeout(() => inp.focus(), 250);
+  const tryIt = () => {
+    if (checkGodPassword(inp.value)) {
+      settings.godKey = true; saveSettings();
+      sfx.levelUp(); confetti({ n: 120, colors: ['#ffd66b', '#fff', '#f59e0b'] });
+      s.close(); setTimeout(godPanel, 250);
+    } else {
+      sfx.error(); haptic(true);
+      inp.value = ''; inp.placeholder = 'Mot de passe incorrect';
+      $('.field', s.el).classList.remove('shake'); void $('.field', s.el).offsetWidth; $('.field', s.el).classList.add('shake');
+    }
+  };
+  $('[data-ok]', s.el).onclick = tryIt;
+  inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') tryIt(); });
+}
+
+const GOD_STEPS = [1, 2, 4, 10, 50, 250, 2000];
+function godPanel() {
+  const slider = (k, label, sub, min, max, step, fmtV) => `<div class="li" style="flex-direction:column;align-items:stretch;gap:8px"><div class="row" style="justify-content:space-between"><div class="tx"><b>${label}</b><small>${sub}</small></div><b class="gold" data-v="${k}">${fmtV(cheats[k])}</b></div><input type="range" class="range" data-k="${k}" min="${min}" max="${max}" step="${step}" value="${k === 'god' ? GOD_STEPS.indexOf(cheats.god) : cheats[k]}"></div>`;
+  const fmts = {
+    luck: (v) => (v ? `${v} %` : 'off'),
+    god: (v) => (v >= 2000 ? 'garanti' : v > 1 ? `+${((v - 1) * 100).toLocaleString('fr-FR')} %` : 'normal'),
+    hits: (v) => (v > 1 ? `×${v}` : 'normal'),
+    rare: (v) => (v > 1 ? `×${v}` : 'normal'),
+    payout: (v) => (v > 1 ? `×${v}` : 'normal'),
+  };
+  const s = sheet(`<h3>${icon('crown', 20)} God mode</h3>
+    <div class="li" data-godsw style="margin-bottom:10px;${cheats.on ? 'box-shadow:inset 0 0 0 2px #ffc800' : ''}"><div class="tx"><b>Activer le god mode</b><small>Les triches ne s’appliquent que sur cet appareil</small></div><div class="switch ${cheats.on ? 'on' : ''}"></div></div>
+    <div class="col" data-sliders style="${cheats.on ? '' : 'opacity:.45;pointer-events:none'}">
+      ${slider('luck', 'Chance de gagner', 'Part des parties perdues qui sont relancées en ta faveur', 0, 100, 5, fmts.luck)}
+      ${slider('god', 'God packs Pokémon', 'Normalement 1 booster sur 2 000', 0, 6, 1, (v) => fmts.god(v))}
+      ${slider('hits', 'Cartes rares Pokémon', 'Multiplie les chances de Double Rare à Secrète', 1, 10, 1, fmts.hits)}
+      ${slider('rare', 'Couteaux & gants CS', 'Multiplie les chances de Covert et ★', 1, 50, 1, fmts.rare)}
+      ${slider('payout', 'Multiplicateur de gains', 'Les gains des jeux casino sont multipliés', 1, 10, 1, fmts.payout)}
+      <div class="label" style="margin-top:8px">Jetons</div>
+      <div class="row"><button class="btn sm grow" data-add="10000">+10 k</button><button class="btn sm grow" data-add="1000000">+1 M</button><button class="btn sm grow" data-add="1000000000">+1 Md</button></div>
+      ${isStory() ? '<button class="btn full" data-unlock>Débloquer tous les jeux et extensions</button>' : ''}
+      <button class="btn ghost full" data-reset>Remettre les triches à zéro</button>
+    </div>
+    <div class="dim" style="font-size:11px;margin-top:12px;line-height:1.5">Avec le god mode, les résultats ne sont plus « équitables prouvables » : c’est du pur fun.</div>`);
+  const refreshTop = () => { renderTop(current); };
+  $('[data-godsw]', s.el).onclick = () => {
+    cheats.on = !cheats.on; saveCheats(); sfx.click();
+    $('[data-godsw] .switch', s.el).classList.toggle('on', cheats.on);
+    $('[data-godsw]', s.el).style.boxShadow = cheats.on ? 'inset 0 0 0 2px #ffc800' : '';
+    const sl = $('[data-sliders]', s.el); sl.style.opacity = cheats.on ? '' : '.45'; sl.style.pointerEvents = cheats.on ? '' : 'none';
+    if (cheats.on) { sfx.levelUp(); confetti({ n: 80, colors: ['#ffd66b', '#fff'] }); }
+    refreshTop();
+  };
+  $$('[data-k]', s.el).forEach((r) => (r.oninput = () => {
+    const k = r.dataset.k;
+    cheats[k] = k === 'god' ? GOD_STEPS[+r.value] : +r.value;
+    $(`[data-v="${k}"]`, s.el).textContent = fmts[k](cheats[k]);
+    sfx.tick(1 + (+r.value / +r.max), 0.05);
+    saveCheats();
+  }));
+  $$('[data-add]', s.el).forEach((b) => (b.onclick = () => { credit(+b.dataset.add, 'god'); sfx.cashout(); toast(`+${fmt(+b.dataset.add)} jetons`, { type: 'gold', icon: icon('crown') }); }));
+  $('[data-unlock]', s.el)?.addEventListener('click', () => {
+    S.peak = Math.max(S.peak, 1e10); GAMES.forEach((g) => (S.seenUnlock[g.id] = 2)); saveNow();
+    sfx.levelUp(); toast('Tout est débloqué', { type: 'gold', icon: icon('crown') }); s.close(); route();
+  });
+  $('[data-reset]', s.el).onclick = () => {
+    Object.assign(cheats, { luck: 0, god: 1, hits: 1, rare: 1, payout: 1 }); saveCheats(); sfx.click(); s.close(); setTimeout(godPanel, 220);
   };
 }
 
@@ -443,7 +523,7 @@ function renderSplash(fromProfile = false) {
     return `Sauvegarde : ${money(d.balance)}${m === 'story' ? ` · chapitre ${(d.chapter || 0) + 1}` : ''}`;
   };
   view.innerHTML = `<div class="splash page-enter">
-    <div class="big-logo"><span class="dot"></span>VAULT</div>
+    <div class="big-logo">${LOGO_MARK.replace('width="30" height="30"', 'width="64" height="64"')}VAULT</div>
     <div class="center muted" style="font-size:13px;margin-top:-6px">Casino · Skins · Cartes — 100 % virtuel</div>
     <div class="spacer"></div>
     <button class="mode-card" data-m="story" style="border-color:#00e70155"><div class="mi">${icon('book', 90)}</div><div class="chip green" style="align-self:flex-start">RECOMMANDÉ</div><div class="mt">Mode histoire</div><div class="ms">Commence avec ${fmt(START.story)} jetons. Atteins des paliers de fortune pour débloquer de nouveaux jeux, les caisses CS et les boosters Pokémon. 15 chapitres jusqu’au milliard.</div><div class="save">${info('story')}</div></button>
