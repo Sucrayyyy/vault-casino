@@ -1,5 +1,5 @@
 // Offline support: app shell + data precached, skin and card images cached on first view.
-const VERSION = 'vault-v7';
+const VERSION = 'vault-v8';
 const SHELL = [
   './',
   'css/app.css',

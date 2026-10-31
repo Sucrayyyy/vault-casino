@@ -31,7 +31,7 @@ const MODULES = {
 // ---------------- updates ----------------
 // Must match version.json. When the app stays open in memory (iPhone home-screen apps do)
 // and a new version is published, mixing old and new files breaks imports: reload instead.
-export const APP_VERSION = 7;
+export const APP_VERSION = 8;
 let updatePending = false;
 function hardReload() {
   if (S) saveNow();
