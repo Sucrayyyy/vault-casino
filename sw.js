@@ -1,5 +1,5 @@
 // Offline support: app shell + data precached, skin and card images cached on first view.
-const VERSION = 'vault-v6';
+const VERSION = 'vault-v7';
 const SHELL = [
   './',
   'css/app.css',
@@ -64,6 +64,9 @@ const SHELL = [
   'js/games/wheel.js',
   'js/icons.js',
   'js/main.js',
+  'js/friends.js',
+  'js/online-config.js',
+  'js/online.js',
   'js/showcase.js',
   'js/mascots.js',
   'js/poke/card.js',

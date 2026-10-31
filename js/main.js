@@ -13,6 +13,8 @@ import { sha256Hex } from './rng.js';
 import { icon, badge } from './icons.js';
 import { MASCOTS, mascotSVG, isMascotUnlocked, currentMascot, equipMascot, checkNewMascots, updateHomeIcon } from './mascots.js';
 import { renderShowcase } from './showcase.js';
+import { onlineReady, linked, startSync, sync, link, friends as fetchFriends } from './online.js';
+import { accountSheet } from './friends.js';
 
 const view = $('#view');
 const topbar = $('#topbar');
@@ -29,7 +31,7 @@ const MODULES = {
 // ---------------- updates ----------------
 // Must match version.json. When the app stays open in memory (iPhone home-screen apps do)
 // and a new version is published, mixing old and new files breaks imports: reload instead.
-export const APP_VERSION = 6;
+export const APP_VERSION = 7;
 let updatePending = false;
 function hardReload() {
   if (S) saveNow();
@@ -65,6 +67,7 @@ function renderTop(route) {
     ${inGame ? `<button class="back-btn" data-back aria-label="Retour"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M15 4l-8 8 8 8" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="top-title">${esc(gameById[id]?.name || '')}</div>`
       : `<button class="logo" data-logo>${mascotSVG()}VAULT</button>`}${cheats.on ? '<span class="god-chip" data-godchip>GOD</span>' : ''}
     <div class="wallet"><button class="bal" data-wallet>${COIN}<span data-bal>${fmt(S.balance)}</span></button><button class="wbtn" data-wallet aria-label="Portefeuille"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h13v3H5" fill="none" stroke="#fff" stroke-width="2.2"/><rect x="3" y="7" width="18" height="13" rx="2" fill="none" stroke="#fff" stroke-width="2.2"/><circle cx="16.5" cy="13.5" r="1.6" fill="#fff"/></svg></button></div>
+    ${inGame || !onlineReady() ? '' : `<button class="icon-btn" data-go="amis" aria-label="Amis"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.8"/><path d="M16.5 14.6c2.6.2 4.4 1.9 5 5.4"/></svg>${friendReqs ? '<i class="badge-dot"></i>' : ''}</button>`}
     ${inGame ? '' : `<button class="icon-btn" data-go="profil" aria-label="Profil"><svg width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>`}`;
   shownBalance = S.balance;
   $('[data-back]', topbar)?.addEventListener('click', () => { sfx.click(); goBack(); });
@@ -77,7 +80,7 @@ function renderTop(route) {
     if (taps >= 5) { taps = 0; openCodeEntry(); }
   });
   $$('[data-wallet]', topbar).forEach((b) => (b.onclick = () => { sfx.click(); openWallet(); }));
-  $('[data-go]', topbar)?.addEventListener('click', () => { sfx.tab(); go('profil'); });
+  $$('[data-go]', topbar).forEach((b) => b.addEventListener('click', () => { sfx.tab(); go(b.dataset.go); }));
 }
 
 let balTimer;
@@ -96,6 +99,22 @@ bus.on('balance', ({ delta }) => {
   balTimer = setTimeout(() => wrap.classList.remove('up', 'down'), 700);
   updateBadges();
 });
+
+let friendReqs = 0;
+async function pollFriends() {
+  if (!onlineReady() || !linked() || !S) return;
+  try { const d = await fetchFriends(); onFriends(d); } catch (e) {}
+}
+function onFriends(d) {
+  const n = d.incoming?.length || 0;
+  if (n > friendReqs) toast(`${n} demande${n > 1 ? 's' : ''} d’ami en attente`, { type: 'blue', icon: icon('users'), sub: 'Ouvre la page Amis pour répondre' });
+  const changed = n !== friendReqs;
+  friendReqs = n;
+  if (changed) renderTop(current);
+}
+bus.on('friends', onFriends);
+bus.on('online', () => renderTop(current));
+setInterval(pollFriends, 60000);
 
 // ---------------- tabbar ----------------
 const TABS = [
@@ -180,7 +199,8 @@ async function route() {
   view.innerHTML = '';
   view.append(page);
   const root = r.split('/')[0];
-  if (root === 'cs') setCleanup((await import('./cs/lobby.js')).mount(page, tileGrid), r);
+  if (root === 'amis') setCleanup((await import('./friends.js')).mount(page), r);
+  else if (root === 'cs') setCleanup((await import('./cs/lobby.js')).mount(page, tileGrid), r);
   else if (root === 'poke') setCleanup((await import('./poke/lobby.js')).mount(page, tileGrid), r);
   else if (root === 'bonus') cleanup = renderBonus(page);
   else if (root === 'profil') cleanup = renderProfile(page);
@@ -429,6 +449,7 @@ function renderProfile(page) {
       ${sw('fast', 'Animations rapides', 'Accélère cartes, caisses et roues')}
       <button class="li" data-fair style="text-align:left"><div class="ic">${icon('shield')}</div><div class="tx"><b>Équité prouvable</b><small>Seeds, hash SHA-256 et nonce</small></div></button>
       <button class="li" data-god style="text-align:left"><div class="ic" style="color:#ffc800">${icon('crown')}</div><div class="tx"><b>God mode ${cheats.on ? '<span class="god-chip">ACTIF</span>' : ''}</b><small>Accès protégé par mot de passe</small></div>${icon('lock', 16)}</button>
+      ${onlineReady() ? `<button class="li" data-online style="text-align:left"><div class="ic" style="color:${linked() ? 'var(--green)' : 'var(--txt2)'}">${icon('wifi')}</div><div class="tx"><b>Compte en ligne</b><small>${linked() ? `Connecté : ${esc(settings.online.pseudo)} · amis et sauvegarde cloud` : 'Réserve ton pseudo et ajoute tes amis'}</small></div></button>` : ''}
       <button class="li" data-switch style="text-align:left"><div class="ic">${icon('user')}</div><div class="tx"><b>Changer d’utilisateur</b><small>Connecté en tant que ${esc(settings.name)}</small></div></button>
       <button class="li" data-export style="text-align:left"><div class="ic">${icon('key')}</div><div class="tx"><b>Exporter ma sauvegarde</b><small>Code à coller sur un autre appareil</small></div></button>
       <button class="li" data-mode style="text-align:left"><div class="ic">${icon('swap')}</div><div class="tx"><b>Changer de mode</b><small>Histoire / Bac à sable (sauvegardes séparées)</small></div></button>
@@ -453,7 +474,8 @@ function renderProfile(page) {
   }));
   $('[data-fair]', page).onclick = () => { sfx.click(); openFairness(); };
   $('[data-god]', page).onclick = () => { sfx.click(); openGodMode(); };
-  $('[data-switch]', page).onclick = () => { sfx.click(); logout(); location.hash = '#/'; renderLogin(); };
+  $('[data-online]', page)?.addEventListener('click', () => { sfx.click(); if (linked()) go('amis'); else accountSheet((res) => { link(res); startSync(); sync(true); pollFriends(); route(); }); });
+  $('[data-switch]', page).onclick = async () => { sfx.click(); if (linked()) await sync(true); logout(); location.hash = '#/'; renderLogin(); };
   $('[data-export]', page).onclick = () => {
     sfx.click();
     const code = exportSave();
@@ -604,6 +626,12 @@ function renderLogin() {
     <div class="big-logo">${mascotSVG(MASCOTS[0], 64)}VAULT</div>
     <div class="center muted" style="font-size:13px;margin-top:-6px">Casino · Skins · Cartes — 100 % virtuel</div>
     <div class="spacer"></div>
+    ${onlineReady() ? `<div class="panel col" style="gap:10px;box-shadow:inset 0 0 0 2px rgba(0,231,1,.35)">
+      <b style="font-size:16px;display:flex;align-items:center;gap:8px">${icon('wifi', 18)} Compte en ligne</b>
+      <div class="muted" style="font-size:12px;line-height:1.5">Pseudo unique protégé par un code : ajoute tes amis, compare vos fortunes et retrouve ta partie sur n’importe quel téléphone.</div>
+      <button class="btn green full lg" data-online>Se connecter ou créer un compte</button>
+    </div>
+    <div class="label" style="margin-top:4px"><span>Ou jouer sans compte</span></div>` : ''}
     <div class="panel col" style="gap:10px">
       <b style="font-size:16px">Ton pseudo</b>
       <div class="muted" style="font-size:12px;line-height:1.5">Ta progression est liée à ton pseudo sur cet appareil. Plusieurs joueurs peuvent partager le même téléphone.</div>
@@ -624,6 +652,7 @@ function renderLogin() {
     if (settings.mode && hasSave(settings.mode)) bootUser(); else renderSplash();
   };
   $('[data-go]', view).onclick = () => enter(inp.value);
+  $('[data-online]', view)?.addEventListener('click', () => { unlock(); sfx.click(); accountSheet((res) => onlineEnter(res), { pseudo: '', fromLogin: true }); });
   inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') enter(inp.value); });
   $$('[data-u]', view).forEach((b) => (b.onclick = () => enter(b.dataset.u)));
   $('[data-import]', view).onclick = () => {
@@ -631,6 +660,25 @@ function renderLogin() {
     if (userIdOf(name).length < 2) { sfx.error(); toast('Entre d’abord le pseudo à utiliser', { type: 'red', icon: icon('user') }); inp.focus(); return; }
     openImport(() => enter(name), name);
   };
+}
+
+// Online login: local profile with the same pseudo + the most recent of cloud / local saves
+function onlineEnter(res) {
+  const u = login(res.pseudo);
+  if (res.save?.saves) {
+    for (const m of ['sandbox', 'story']) {
+      const cloud = res.save.saves[m];
+      if (!cloud) continue;
+      const k = `vault.u.${u.id}.save.${m}`;
+      let localAt = 0; try { localAt = JSON.parse(localStorage.getItem(k))?.savedAt || 0; } catch (e) {}
+      if ((cloud.savedAt || 0) > localAt) localStorage.setItem(k, JSON.stringify(cloud));
+    }
+    if (!settings.mode) settings.mode = res.save.saves.sandbox ? 'sandbox' : res.save.saves.story ? 'story' : null;
+  }
+  link(res);
+  topbar.style.display = '';
+  toast(`Connecté en tant que ${esc(res.pseudo)}`, { icon: icon('wifi') });
+  if (settings.mode && hasSave(settings.mode)) bootUser(); else renderSplash();
 }
 
 function openImport(done, name) {
@@ -653,6 +701,7 @@ function bootUser() {
   updateHomeIcon();
   import('./poke/lobby.js').then((m) => m.refreshMarket());
   startFeed();
+  if (linked()) { startSync(); pollFriends(); }
   topbar.style.display = '';
   if (location.hash !== '#/') location.hash = '#/'; else route();
 }
@@ -682,6 +731,7 @@ function renderSplash(fromProfile = false) {
     loadMode(b.dataset.m);
     topbar.style.display = '';
     startFeed();
+    if (linked()) { startSync(); pollFriends(); }
     if (location.hash !== '#/') location.hash = '#/'; else route();
   }));
 }

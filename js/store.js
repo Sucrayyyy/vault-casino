@@ -185,6 +185,7 @@ let saveT = null;
 export function save() { clearTimeout(saveT); saveT = setTimeout(saveNow, 400); }
 export function saveNow() {
   if (!S) return;
+  S.savedAt = Date.now();
   try { localStorage.setItem(KEY(S.mode), JSON.stringify(S)); } catch (e) { console.warn('save failed', e); }
 }
 window.addEventListener('pagehide', saveNow);
